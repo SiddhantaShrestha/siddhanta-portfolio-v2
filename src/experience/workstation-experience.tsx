@@ -2,11 +2,14 @@
 
 import { Canvas } from "@react-three/fiber";
 import { Suspense } from "react";
+import { AgXToneMapping } from "three";
 import { CAMERA } from "@/experience/config/camera";
 import { QUALITY } from "@/experience/config/quality";
 import { Lighting } from "@/experience/lighting/lighting";
 import { CameraRig } from "@/experience/scene/camera-rig";
 import { FrameControl } from "@/experience/scene/frame-control";
+import { SceneReady } from "@/experience/scene/scene-ready";
+import { StatsProbe } from "@/experience/scene/stats-probe";
 import { WorkstationScene } from "@/experience/scene/workstation-scene";
 import type { ExperienceProps } from "@/lib/workstation/types";
 
@@ -34,20 +37,20 @@ export default function WorkstationExperience({
         antialias: quality.antialias,
         alpha: true,
         powerPreference: "high-performance",
+        // AgX keeps saturated blues from clipping into electric colors.
+        toneMapping: AgXToneMapping,
+        toneMappingExposure: 1.15,
       }}
       style={{ touchAction: "pan-y" }}
     >
       <Suspense fallback={null}>
         <Lighting tier={tier} />
         <WorkstationScene animate={animated} />
+        <SceneReady onReady={onReady} />
       </Suspense>
+      <StatsProbe />
       <CameraRig parallax={animated} />
-      <FrameControl
-        active={active}
-        ambient={animated}
-        onReady={onReady}
-        onFail={onFail}
-      />
+      <FrameControl active={active} ambient={animated} onFail={onFail} />
     </Canvas>
   );
 }

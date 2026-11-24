@@ -21,6 +21,9 @@ export class ExperienceErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("3D experience failed, showing the poster.", error);
+    }
     this.props.onError(error);
   }
 

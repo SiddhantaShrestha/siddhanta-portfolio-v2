@@ -1,7 +1,7 @@
 "use client";
 
-import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
+import { useThree } from "@react-three/fiber";
+import { useEffect } from "react";
 
 const AMBIENT_FPS = 24;
 
@@ -9,7 +9,6 @@ type FrameControlProps = {
   active: boolean;
   /** Request frames at a steady rate for ambient motion. */
   ambient: boolean;
-  onReady: () => void;
   onFail: () => void;
 };
 
@@ -21,24 +20,14 @@ type FrameControlProps = {
  * - When the stage leaves the viewport or the tab is hidden, the timer stops
  *   and the loop goes fully idle. Becoming active again renders one frame
  *   immediately.
- * - Reports the first rendered frame so the shell can reveal the canvas.
  * - Reports WebGL context loss so the shell can return to the poster.
+ *
+ * The "ready" signal lives in scene-ready.tsx, because it must wait for the
+ * models to load.
  */
-export function FrameControl({
-  active,
-  ambient,
-  onReady,
-  onFail,
-}: FrameControlProps) {
+export function FrameControl({ active, ambient, onFail }: FrameControlProps) {
   const invalidate = useThree((state) => state.invalidate);
   const canvas = useThree((state) => state.gl.domElement);
-  const reported = useRef(false);
-
-  useFrame(() => {
-    if (reported.current) return;
-    reported.current = true;
-    onReady();
-  });
 
   useEffect(() => {
     if (!active) return;
@@ -48,17 +37,6 @@ export function FrameControl({
     const timer = window.setInterval(invalidate, 1000 / AMBIENT_FPS);
     return () => window.clearInterval(timer);
   }, [active, ambient, invalidate]);
-
-  // Compile shaders in parallel (KHR_parallel_shader_compile) instead of
-  // blocking the main thread inside the first render call.
-  const gl = useThree((state) => state.gl);
-  const scene = useThree((state) => state.scene);
-  const camera = useThree((state) => state.camera);
-  useEffect(() => {
-    gl.compileAsync(scene, camera).catch(() => {
-      // Not critical. The first render compiles whatever is missing.
-    });
-  }, [gl, scene, camera]);
 
   useEffect(() => {
     function onLost(event: Event) {

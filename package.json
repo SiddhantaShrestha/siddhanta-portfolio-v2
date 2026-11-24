@@ -9,7 +9,11 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "assets:build": "node tools/assets/build.mjs",
+    "assets:optimize": "node tools/assets/optimize.mjs",
+    "assets:textures": "node tools/assets/textures.mjs",
+    "assets": "npm run assets:build && npm run assets:optimize && npm run assets:textures"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
@@ -30,6 +34,7 @@
     "eslint-config-next": "16.4.6",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.10.1",
+    "sharp": "^0.35.5",
     "tailwindcss": "4.3.3",
     "typescript": "^5"
   }

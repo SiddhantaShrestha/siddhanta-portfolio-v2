@@ -1,99 +1,225 @@
 "use client";
 
+import { Billboard } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
-import type { MeshStandardMaterial } from "three";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import {
+  AdditiveBlending,
+  Color,
+  DoubleSide,
+  Object3D,
+  Vector2,
+  type Group,
+  type InstancedMesh,
+  type ShaderMaterial,
+} from "three";
 import type { StationPlacement } from "@/experience/config/layout";
 import { PALETTE } from "@/experience/config/palette";
+import {
+  CORE_FRAGMENT,
+  CORE_VERTEX,
+  HALO_FRAGMENT,
+  HALO_VERTEX,
+  SHELL_FRAGMENT,
+  SHELL_VERTEX,
+} from "@/experience/objects/orb-shaders";
 
 type AiOrbProps = {
   placement: StationPlacement;
-  /** Gentle core pulse. Off in calm mode and on the light tier. */
+  /** Swirl and ring motion. Off in calm mode and on the light tier. */
   animate: boolean;
 };
 
 const ORB_Y = 0.6;
+const SHELL_RADIUS = 0.27;
+const CORE_RADIUS = 0.15;
+
+/** Profile of the pedestal as [radius, height] pairs, bottom to top. */
+const PEDESTAL_PROFILE: [number, number][] = [
+  [0, 0],
+  [0.27, 0],
+  [0.285, 0.008],
+  [0.285, 0.028],
+  [0.262, 0.042],
+  [0.21, 0.05],
+  [0.13, 0.068],
+  [0.075, 0.12],
+  [0.058, 0.2],
+  [0.062, 0.27],
+  [0.115, 0.312],
+  [0.15, 0.332],
+  [0.142, 0.344],
+  [0.1, 0.338],
+  [0, 0.336],
+];
+
+const BEADS = 18;
+
+function advanceTime(material: ShaderMaterial, delta: number) {
+  const time = material.uniforms.uTime;
+  if (time) time.value += delta;
+}
+
+type BeadsProps = { radius: number; size: number; color: string };
+
+/** Small spheres spaced around a ring, drawn as one instanced mesh. */
+function Beads({ radius, size, color }: BeadsProps) {
+  const mesh = useRef<InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    const target = mesh.current;
+    if (!target) return;
+    const helper = new Object3D();
+    for (let i = 0; i < BEADS; i++) {
+      const angle = (i / BEADS) * Math.PI * 2;
+      helper.position.set(
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius,
+        0,
+      );
+      helper.updateMatrix();
+      target.setMatrixAt(i, helper.matrix);
+    }
+    target.instanceMatrix.needsUpdate = true;
+  }, [radius]);
+
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, BEADS]}>
+      <sphereGeometry args={[size, 12, 8]} />
+      <meshBasicMaterial color={color} toneMapped={false} />
+    </instancedMesh>
+  );
+}
 
 /** AI orb on a pedestal: the AI Engineering station. */
 export function AiOrb({ placement, animate }: AiOrbProps) {
-  const coreMaterial = useRef<MeshStandardMaterial>(null);
+  const ringA = useRef<Group>(null);
+  const ringB = useRef<Group>(null);
+  const core = useRef<ShaderMaterial>(null);
 
-  useFrame(({ clock }) => {
-    const material = coreMaterial.current;
-    if (!animate || !material) return;
-    material.emissiveIntensity = 1.6 + Math.sin(clock.elapsedTime * 1.5) * 0.4;
+  const uniforms = useMemo(
+    () => ({
+      shell: {
+        uTint: { value: new Color("#0a2a42") },
+        uRim: { value: new Color(PALETTE.accent) },
+      },
+      core: {
+        uTime: { value: 0 },
+        uA: { value: new Color(PALETTE.accent) },
+        uB: { value: new Color(PALETTE.violet) },
+      },
+      halo: {
+        uColor: { value: new Color(PALETTE.accent) },
+        uStrength: { value: 0.55 },
+      },
+    }),
+    [],
+  );
+
+  const pedestalPoints = useMemo(
+    () => PEDESTAL_PROFILE.map(([x, y]) => new Vector2(x, y)),
+    [],
+  );
+
+  useFrame((_, delta) => {
+    if (!animate) return;
+    if (core.current) advanceTime(core.current, delta);
+    if (ringA.current) ringA.current.rotation.z += delta * 0.35;
+    if (ringB.current) ringB.current.rotation.z -= delta * 0.22;
   });
 
   return (
     <group position={[...placement.position]} rotation-y={placement.rotationY}>
-      <mesh position={[0, 0.025, 0]}>
-        <cylinderGeometry args={[0.23, 0.26, 0.05, 48]} />
+      {/* Pedestal: a lathe profile in dark metal with thin glowing rings. */}
+      <mesh>
+        <latheGeometry args={[pedestalPoints, 64]} />
         <meshStandardMaterial
-          color={PALETTE.metalDark}
-          roughness={0.35}
-          metalness={0.75}
+          color="#232d46"
+          metalness={0.85}
+          roughness={0.34}
+          side={DoubleSide}
         />
       </mesh>
-      <mesh position={[0, 0.14, 0]}>
-        <cylinderGeometry args={[0.04, 0.06, 0.18, 24]} />
-        <meshStandardMaterial
-          color={PALETTE.metal}
-          roughness={0.35}
-          metalness={0.8}
-        />
+      <mesh position={[0, 0.034, 0]} rotation-x={Math.PI / 2}>
+        <torusGeometry args={[0.245, 0.0035, 8, 96]} />
+        <meshBasicMaterial color={PALETTE.accent} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0.33, 0]} rotation-x={Math.PI / 2}>
+        <torusGeometry args={[0.145, 0.003, 8, 64]} />
+        <meshBasicMaterial color={PALETTE.violet} toneMapped={false} />
       </mesh>
 
-      {/* Glass shell and inner core */}
-      <mesh position={[0, ORB_Y, 0]}>
-        <sphereGeometry args={[0.27, 48, 32]} />
-        <meshPhysicalMaterial
-          color="#10304a"
-          transparent
-          opacity={0.32}
-          roughness={0.08}
-          metalness={0.1}
-          clearcoat={1}
-          depthWrite={false}
-        />
-      </mesh>
-      <mesh position={[0, ORB_Y, 0]}>
-        <sphereGeometry args={[0.13, 32, 24]} />
-        <meshStandardMaterial
-          ref={coreMaterial}
-          color="#06222b"
-          emissive={PALETTE.accent}
-          emissiveIntensity={1.6}
-          roughness={0.4}
-        />
-      </mesh>
+      <group position={[0, ORB_Y, 0]}>
+        {/* Core: opaque swirl. */}
+        <mesh>
+          <sphereGeometry args={[CORE_RADIUS, 48, 32]} />
+          <shaderMaterial
+            ref={core}
+            vertexShader={CORE_VERTEX}
+            fragmentShader={CORE_FRAGMENT}
+            uniforms={uniforms.core}
+            toneMapped={false}
+          />
+        </mesh>
 
-      {/* Two rings around the orb */}
-      <mesh position={[0, ORB_Y, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.33, 0.01, 12, 96]} />
-        <meshStandardMaterial
-          color={PALETTE.metal}
-          roughness={0.3}
-          metalness={0.9}
-        />
-      </mesh>
-      <mesh position={[0, ORB_Y, 0]} rotation={[1.0, 0.2, 0.5]}>
-        <torusGeometry args={[0.38, 0.007, 12, 96]} />
-        <meshStandardMaterial
-          color={PALETTE.violet}
-          emissive={PALETTE.violet}
-          emissiveIntensity={0.7}
-          roughness={0.3}
-          metalness={0.5}
-        />
-      </mesh>
+        {/* Glass shell: transparent fresnel, drawn after the core. */}
+        <mesh renderOrder={3}>
+          <sphereGeometry args={[SHELL_RADIUS, 64, 40]} />
+          <shaderMaterial
+            vertexShader={SHELL_VERTEX}
+            fragmentShader={SHELL_FRAGMENT}
+            uniforms={uniforms.shell}
+            transparent
+            depthWrite={false}
+          />
+        </mesh>
 
-      <pointLight
-        position={[0, ORB_Y, 0]}
-        color={PALETTE.accent}
-        intensity={1.6}
-        distance={1.8}
-        decay={2}
-      />
+        {/* Orbit rings with bead markers. */}
+        <group rotation={[Math.PI / 2 - 0.25, 0.2, 0]}>
+          <group ref={ringA}>
+            <mesh>
+              <torusGeometry args={[0.34, 0.0085, 12, 128]} />
+              <meshStandardMaterial
+                color="#7d8aa8"
+                metalness={1}
+                roughness={0.28}
+              />
+            </mesh>
+            <Beads radius={0.34} size={0.0145} color={PALETTE.accent} />
+          </group>
+        </group>
+        <group rotation={[1.05, 0.35, 0.5]}>
+          <group ref={ringB}>
+            <mesh>
+              <torusGeometry args={[0.4, 0.0055, 10, 128]} />
+              <meshBasicMaterial color={PALETTE.violet} toneMapped={false} />
+            </mesh>
+            <Beads radius={0.4} size={0.01} color="#c9c1ff" />
+          </group>
+        </group>
+
+        {/* Soft glow behind the orb, always facing the camera. */}
+        <Billboard renderOrder={-1}>
+          <mesh>
+            <planeGeometry args={[1.2, 1.2]} />
+            <shaderMaterial
+              vertexShader={HALO_VERTEX}
+              fragmentShader={HALO_FRAGMENT}
+              uniforms={uniforms.halo}
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+            />
+          </mesh>
+        </Billboard>
+
+        <pointLight
+          color={PALETTE.accent}
+          intensity={0.3}
+          distance={1.4}
+          decay={2}
+        />
+      </group>
     </group>
   );
 }

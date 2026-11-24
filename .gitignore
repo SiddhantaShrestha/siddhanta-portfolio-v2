@@ -37,6 +37,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# raw 3D sources and preview renders (see docs/3d-assets.md)
+/assets-src/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python
+__pycache__/
+*.pyc
+
