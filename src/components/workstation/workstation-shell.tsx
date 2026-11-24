@@ -9,7 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import { ExperienceErrorBoundary } from "@/components/workstation/experience-error-boundary";
-import { ExperienceLoader } from "@/components/workstation/experience-loader";
+import {
+  ExperienceLoader,
+  resetExperienceCaches,
+} from "@/components/workstation/experience-loader";
 import { StationDock } from "@/components/workstation/station-dock";
 import { StationPanel } from "@/components/workstation/station-panel";
 import { ThreeDSwitch } from "@/components/workstation/three-d-switch";
@@ -36,7 +39,14 @@ type WorkstationShellProps = {
   poster: ReactNode;
 };
 
+type FailureKind = "chunk" | "timeout" | "context" | "error";
+
 const LOAD_TIMEOUT_MS = 15_000;
+const SLOW_LOAD_MS = 6_000;
+/** How long to wait for the browser to give a lost WebGL context back. */
+const CONTEXT_RESTORE_WAIT_MS = 5_000;
+/** One automatic recovery per lost context, and no more than this per visit. */
+const MAX_CONTEXT_RECOVERIES = 2;
 const COMPACT_QUERY = "(max-width: 1023px)";
 
 function subscribeCompact(onStoreChange: () => void) {
@@ -53,6 +63,19 @@ function getServerCompact() {
   return false;
 }
 
+/** Separates "the code could not be downloaded" from other failures. */
+function classifyFailure(error: unknown): FailureKind {
+  const text = error instanceof Error ? `${error.name} ${error.message}` : "";
+  if (
+    /ChunkLoadError|Failed to load chunk|Loading chunk|dynamically imported module|Importing a module script failed/i.test(
+      text,
+    )
+  ) {
+    return "chunk";
+  }
+  return "error";
+}
+
 /**
  * Client shell around the server-rendered poster.
  *
@@ -66,6 +89,10 @@ function getServerCompact() {
  * - Everything else starts on the poster. The switch can still turn 3D on, as
  *   long as WebGL works. Manual use on a non-desktop device or with reduced
  *   motion gets the light tier and a still view.
+ *
+ * Failure rules: any failure returns to the poster, which keeps working. A
+ * lost WebGL context gets one patient wait for the browser to restore it, then
+ * a fresh canvas. Everything else shows a status line with a retry.
  */
 export function WorkstationShell({ header, poster }: WorkstationShellProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -89,12 +116,21 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
   const [idleReady, setIdleReady] = useState(false);
   const [inView, setInView] = useState(false);
   const [everInView, setEverInView] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<FailureKind | null>(null);
+  const [failureCount, setFailureCount] = useState(0);
   const [ready, setReady] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [mountKey, setMountKey] = useState(0);
   const [selectedStation, setSelectedStation] = useState<StationId | null>(
     null,
   );
 
+  const restoreFocusFor = useRef<StationId | null>(null);
+  const contextRecoveries = useRef(0);
+
+  const failed = failure !== null;
   const supported = webgl === true;
   const autoEligible = supported && desktop && !reducedMotion && !saveData;
   const enabled =
@@ -108,14 +144,42 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
 
   // Reset "ready" as soon as the canvas goes away, so a later mount starts
   // from the poster again.
-  if (!shouldMount && ready) {
+  if (!shouldMount && (ready || recovering || slow)) {
     setReady(false);
+    setRecovering(false);
+    setSlow(false);
   }
 
   // Leaving 3D clears the station so the poster stays usable.
   if (!interactive && selectedStation) {
     setSelectedStation(null);
   }
+
+  const select = setSelectedStation;
+
+  /**
+   * Closes the panel. When keyboard focus is inside it, focus goes back to the
+   * dock item of that station, so the visitor is not dropped at the page top.
+   */
+  const closePanel = useCallback(() => {
+    const panel = rootRef.current?.querySelector("[data-station-panel]");
+    if (panel?.contains(document.activeElement)) {
+      restoreFocusFor.current = selectedStation;
+    }
+    setSelectedStation(null);
+  }, [selectedStation]);
+
+  useEffect(() => {
+    if (selectedStation || !restoreFocusFor.current) return;
+    const station = restoreFocusFor.current;
+    restoreFocusFor.current = null;
+    const root = rootRef.current;
+    const target =
+      root?.querySelector<HTMLElement>(
+        `[data-station-dock] [data-station="${station}"]`,
+      ) ?? root?.querySelector<HTMLElement>('[role="switch"]');
+    target?.focus({ preventScroll: true });
+  }, [selectedStation]);
 
   useEffect(() => {
     const element = rootRef.current;
@@ -165,42 +229,91 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
     };
   }, []);
 
-  // Give up on 3D if it never produces a frame.
+  const fail = useCallback((kind: FailureKind) => {
+    setFailure((current) => current ?? kind);
+    setFailureCount((count) => count + 1);
+  }, []);
+
+  // Say so when loading takes long, and give up if no frame ever arrives.
   useEffect(() => {
     if (!shouldMount || ready) return;
-    const timer = window.setTimeout(() => setFailed(true), LOAD_TIMEOUT_MS);
+    const slowTimer = window.setTimeout(() => setSlow(true), SLOW_LOAD_MS);
+    const failTimer = window.setTimeout(() => fail("timeout"), LOAD_TIMEOUT_MS);
+    return () => {
+      window.clearTimeout(slowTimer);
+      window.clearTimeout(failTimer);
+    };
+  }, [shouldMount, ready, mountKey, attempt, fail]);
+
+  // A lost context may come back. Wait once, patiently, then give up.
+  useEffect(() => {
+    if (!recovering) return;
+    const timer = window.setTimeout(
+      () => fail("context"),
+      CONTEXT_RESTORE_WAIT_MS,
+    );
     return () => window.clearTimeout(timer);
-  }, [shouldMount, ready]);
+  }, [recovering, fail]);
 
   useEffect(() => {
     if (!selectedStation) return;
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
         event.preventDefault();
-        setSelectedStation(null);
+        closePanel();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedStation]);
+  }, [selectedStation, closePanel]);
 
-  const handleReady = useCallback(() => setReady(true), []);
-  const handleFail = useCallback(() => setFailed(true), []);
-  const handleSelect = useCallback((station: StationId | null) => {
-    setSelectedStation(station);
+  const handleReady = useCallback(() => {
+    setReady(true);
+    setSlow(false);
+    setFailureCount(0);
   }, []);
 
+  const handleBoundaryError = useCallback(
+    (error: Error) => fail(classifyFailure(error)),
+    [fail],
+  );
+
+  const handleContextLost = useCallback(() => {
+    // Back to the poster while the browser decides. Nothing else to do here.
+    setReady(false);
+    setRecovering(true);
+  }, []);
+
+  const handleContextRestored = useCallback(() => {
+    setRecovering(false);
+    if (contextRecoveries.current >= MAX_CONTEXT_RECOVERIES) {
+      fail("context");
+      return;
+    }
+    contextRecoveries.current += 1;
+    // Baked environment and shadow textures are gone with the old context.
+    // A fresh canvas rebuilds them from the cached models.
+    setMountKey((key) => key + 1);
+  }, [fail]);
+
   function handleToggle() {
-    setFailed(false);
-    setSelectedStation(null);
+    setFailure(null);
+    setFailureCount(0);
+    contextRecoveries.current = 0;
+    select(null);
     setIdleReady(true); // a manual choice skips the idle wait
     setPreference(enabled ? "off" : "on");
   }
 
-  function handleRetry() {
-    setFailed(false);
+  async function handleRetry() {
+    // Forget failed model downloads, then start a clean attempt.
+    await resetExperienceCaches();
+    contextRecoveries.current = 0;
+    setFailure(null);
+    setRecovering(false);
+    setAttempt((value) => value + 1);
     setIdleReady(true);
   }
 
@@ -214,10 +327,20 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
 
   let statusText = "";
   if (webgl === false) statusText = "3D is not available on this device";
-  else if (failed) statusText = "3D could not start";
-  else if (enabled && !ready) statusText = "Loading 3D";
+  else if (failure === "chunk") statusText = "3D could not be downloaded";
+  else if (failure === "context")
+    statusText = "3D stopped, graphics were reset";
+  else if (failure === "timeout") statusText = "3D took too long to start";
+  else if (failure) statusText = "3D could not start";
+  else if (recovering) statusText = "Restoring 3D";
+  else if (enabled && !ready)
+    statusText = slow ? "Still loading 3D" : "Loading 3D";
   else if (enabled && reducedMotion)
     statusText = "Still view, reduced motion is on";
+
+  // A chunk that failed once may stay failed in the bundler's cache, so a
+  // reload is offered right away for it, and after repeated failures.
+  const offerReload = failure === "chunk" || failureCount >= 2;
 
   return (
     <div
@@ -228,6 +351,7 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
       data-workstation-stage
       data-state={visualState}
       data-selected={selectedStation ?? undefined}
+      data-failure={failure ?? undefined}
     >
       <div className="workstation-scan" aria-hidden />
 
@@ -240,16 +364,19 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
             ready ? "opacity-100" : "opacity-0",
           )}
         >
-          <ExperienceErrorBoundary onError={handleFail}>
+          <ExperienceErrorBoundary onError={handleBoundaryError}>
             <ExperienceLoader
+              key={mountKey}
+              attempt={attempt}
               active={active}
               tier={tier}
               calm={reducedMotion}
               selectedStation={selectedStation}
               compactPanel={compactPanel}
-              onSelectStation={handleSelect}
+              onSelectStation={select}
               onReady={handleReady}
-              onFail={handleFail}
+              onContextLost={handleContextLost}
+              onContextRestored={handleContextRestored}
             />
           </ExperienceErrorBoundary>
         </div>
@@ -259,7 +386,7 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
         <StationPanel
           station={selectedStation}
           compact={compactPanel}
-          onClose={() => setSelectedStation(null)}
+          onClose={closePanel}
         />
       ) : null}
 
@@ -290,6 +417,18 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
                   >
                     Try again
                   </button>
+                  {offerReload ? (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="text-accent underline underline-offset-2"
+                      >
+                        Reload page
+                      </button>
+                    </>
+                  ) : null}
                 </>
               ) : null}
             </p>
@@ -301,9 +440,7 @@ export function WorkstationShell({ header, poster }: WorkstationShellProps) {
         <StationDock
           interactive={interactive}
           selectedStation={selectedStation}
-          onSelect={(id) =>
-            setSelectedStation((current) => (current === id ? null : id))
-          }
+          onSelect={(id) => select(selectedStation === id ? null : id)}
         />
       </div>
     </div>

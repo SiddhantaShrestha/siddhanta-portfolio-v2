@@ -44,10 +44,10 @@ export function StationPanel({ station, compact, onClose }: StationPanelProps) {
       className={cn(
         "pointer-events-auto absolute z-20 flex flex-col border border-line bg-navy/94 text-foreground shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm",
         compact
-          ? "inset-x-3 bottom-3 max-h-[38%] rounded-md"
+          ? "inset-x-3 bottom-3 max-h-[44%] rounded-md"
           : side === "left"
-            ? "top-[4.75rem] bottom-14 left-3 w-[min(14.5rem,27%)] rounded-md"
-            : "top-[4.75rem] bottom-14 right-3 w-[min(14.5rem,27%)] rounded-md",
+            ? "top-[4.75rem] bottom-[5.1rem] left-3 w-[min(15rem,32%)] rounded-md"
+            : "top-[4.75rem] bottom-[5.1rem] right-3 w-[min(15rem,32%)] rounded-md",
       )}
     >
       <div className="flex items-start justify-between gap-3 border-b border-line px-3.5 py-2.5">

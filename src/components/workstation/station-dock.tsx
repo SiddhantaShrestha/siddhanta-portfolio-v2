@@ -23,6 +23,7 @@ export function StationDock({
   return (
     <ul
       data-station-dock
+      aria-label="Workstation stations"
       className="pointer-events-auto mt-3 grid grid-cols-2 gap-1.5 sm:hidden"
     >
       {workstationStations.map((station) => {
@@ -39,6 +40,7 @@ export function StationDock({
             <li key={station.id}>
               <button
                 type="button"
+                data-station={station.id}
                 className={className}
                 aria-pressed={selected}
                 onClick={() => onSelect(station.id)}
@@ -56,7 +58,11 @@ export function StationDock({
 
         return (
           <li key={station.id}>
-            <a href={station.href} className={className}>
+            <a
+              href={station.href}
+              data-station={station.id}
+              className={className}
+            >
               <span className="text-sm text-foreground">{station.label}</span>
               <span data-station-desc className="text-xs text-muted">
                 {station.description}

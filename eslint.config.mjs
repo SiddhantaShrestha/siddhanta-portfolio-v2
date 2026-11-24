@@ -30,7 +30,7 @@ const webglPatterns = {
 const experienceEntryPattern = {
   group: ["@/experience", "@/experience/*", "**/experience/*"],
   message:
-    "Only components/workstation/experience-loader.tsx may import src/experience, through next/dynamic with ssr: false.",
+    "Only components/workstation/experience-loader.tsx may import src/experience, through a dynamic import().",
 };
 
 // no-restricted-imports does not look at dynamic import(), so cover it here.

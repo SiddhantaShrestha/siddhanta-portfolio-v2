@@ -8,6 +8,7 @@ import { QUALITY } from "@/experience/config/quality";
 import { Lighting } from "@/experience/lighting/lighting";
 import { CameraRig } from "@/experience/scene/camera-rig";
 import { FrameControl } from "@/experience/scene/frame-control";
+import { ResourceCleanup } from "@/experience/scene/resource-cleanup";
 import { SceneReady } from "@/experience/scene/scene-ready";
 import { StatsProbe } from "@/experience/scene/stats-probe";
 import { WorkstationScene } from "@/experience/scene/workstation-scene";
@@ -25,7 +26,8 @@ export default function WorkstationExperience({
   compactPanel,
   onSelectStation,
   onReady,
-  onFail,
+  onContextLost,
+  onContextRestored,
 }: ExperienceProps) {
   const quality = QUALITY[tier];
   // Motion that needs a steady frame rate only runs on the full tier.
@@ -33,7 +35,7 @@ export default function WorkstationExperience({
 
   return (
     <Canvas
-      frameloop="demand"
+      frameloop="never"
       dpr={quality.dpr}
       camera={{ fov: CAMERA.fov, near: 1, far: 40 }}
       gl={{
@@ -57,6 +59,7 @@ export default function WorkstationExperience({
           selectedStation={selectedStation}
           onSelectStation={onSelectStation}
         />
+        <ResourceCleanup />
         <SceneReady onReady={onReady} />
       </Suspense>
       <StatsProbe />
@@ -69,7 +72,8 @@ export default function WorkstationExperience({
       <FrameControl
         active={active}
         ambient={animated && !selectedStation}
-        onFail={onFail}
+        onContextLost={onContextLost}
+        onContextRestored={onContextRestored}
       />
     </Canvas>
   );

@@ -22,6 +22,8 @@ export type ExperienceProps = {
   onSelectStation: (station: StationId | null) => void;
   /** Called once, after the first complete frame has been rendered. */
   onReady: () => void;
-  /** Called when the scene cannot continue, for example on WebGL context loss. */
-  onFail: () => void;
+  /** Called when the browser takes the WebGL context away. */
+  onContextLost: () => void;
+  /** Called when the browser gives the WebGL context back. */
+  onContextRestored: () => void;
 };
