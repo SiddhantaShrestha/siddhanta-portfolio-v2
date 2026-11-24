@@ -28,6 +28,8 @@ type AiOrbProps = {
   placement: StationPlacement;
   /** Swirl and ring motion. Off in calm mode and on the light tier. */
   animate: boolean;
+  /** Slightly stronger glow on hover or while this station is selected. */
+  intensify?: boolean;
 };
 
 const ORB_Y = 0.6;
@@ -58,6 +60,10 @@ const BEADS = 18;
 function advanceTime(material: ShaderMaterial, delta: number) {
   const time = material.uniforms.uTime;
   if (time) time.value += delta;
+}
+
+function setHaloStrength(uniform: { value: number }, value: number) {
+  uniform.value = value;
 }
 
 type BeadsProps = { radius: number; size: number; color: string };
@@ -92,7 +98,7 @@ function Beads({ radius, size, color }: BeadsProps) {
 }
 
 /** AI orb on a pedestal: the AI Engineering station. */
-export function AiOrb({ placement, animate }: AiOrbProps) {
+export function AiOrb({ placement, animate, intensify = false }: AiOrbProps) {
   const ringA = useRef<Group>(null);
   const ringB = useRef<Group>(null);
   const core = useRef<ShaderMaterial>(null);
@@ -120,6 +126,10 @@ export function AiOrb({ placement, animate }: AiOrbProps) {
     () => PEDESTAL_PROFILE.map(([x, y]) => new Vector2(x, y)),
     [],
   );
+
+  useLayoutEffect(() => {
+    setHaloStrength(uniforms.halo.uStrength, intensify ? 0.82 : 0.55);
+  }, [intensify, uniforms]);
 
   useFrame((_, delta) => {
     if (!animate) return;
@@ -215,7 +225,7 @@ export function AiOrb({ placement, animate }: AiOrbProps) {
 
         <pointLight
           color={PALETTE.accent}
-          intensity={0.3}
+          intensity={intensify ? 0.55 : 0.3}
           distance={1.4}
           decay={2}
         />

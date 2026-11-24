@@ -21,6 +21,9 @@ export default function WorkstationExperience({
   active,
   tier,
   calm,
+  selectedStation,
+  compactPanel,
+  onSelectStation,
   onReady,
   onFail,
 }: ExperienceProps) {
@@ -42,15 +45,32 @@ export default function WorkstationExperience({
         toneMappingExposure: 1.15,
       }}
       style={{ touchAction: "pan-y" }}
+      onPointerMissed={() => {
+        // Clicks on empty stage space return to the overview.
+        if (selectedStation) onSelectStation(null);
+      }}
     >
       <Suspense fallback={null}>
         <Lighting tier={tier} />
-        <WorkstationScene animate={animated} />
+        <WorkstationScene
+          animate={animated}
+          selectedStation={selectedStation}
+          onSelectStation={onSelectStation}
+        />
         <SceneReady onReady={onReady} />
       </Suspense>
       <StatsProbe />
-      <CameraRig parallax={animated} />
-      <FrameControl active={active} ambient={animated} onFail={onFail} />
+      <CameraRig
+        parallax={animated && !selectedStation}
+        calm={calm}
+        selectedStation={selectedStation}
+        compactPanel={compactPanel}
+      />
+      <FrameControl
+        active={active}
+        ambient={animated && !selectedStation}
+        onFail={onFail}
+      />
     </Canvas>
   );
 }
