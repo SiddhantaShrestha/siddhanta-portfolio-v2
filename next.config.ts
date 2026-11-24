@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // Three.js addons ship modern syntax that Next should compile with the scene.
+  transpilePackages: ["three"],
   turbopack: {
     rules: {
       "*.css": {
