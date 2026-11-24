@@ -295,6 +295,17 @@
   opacity: 0.92;
 }
 
+/*
+ On small screens the bottom sheet covers the dock. A covered control must not
+ stay in the tab order, because its focus ring would be invisible. Closing the
+ sheet (Back or Escape) brings the dock back and returns focus to it.
+*/
+@media (max-width: 1023px) {
+  .workstation-stage[data-state="3d"][data-selected] [data-station-dock] {
+    visibility: hidden;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workstation-stage [data-poster-art],
   .workstation-stage[data-state="3d"] [data-poster-art] {
