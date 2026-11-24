@@ -10,7 +10,7 @@ export function HeroSection() {
       aria-labelledby="home-heading"
       className="relative overflow-hidden border-b border-line"
     >
-      <div className="section-shell grid gap-6 pt-6 pb-10 sm:gap-8 sm:pt-10 sm:pb-14 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] lg:items-end lg:gap-10 lg:pt-14 lg:pb-20">
+      <div className="section-shell grid gap-6 pt-6 pb-10 sm:gap-8 sm:pt-10 sm:pb-14 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] lg:items-end lg:gap-8 lg:pt-14 lg:pb-20">
         <div className="order-1 max-w-xl lg:pb-4" data-reveal>
           <p className="font-mono text-[0.65rem] tracking-[0.18em] text-accent uppercase sm:text-[0.7rem] sm:tracking-[0.2em]">
             {profile.roleLine}

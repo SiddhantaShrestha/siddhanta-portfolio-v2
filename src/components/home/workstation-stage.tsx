@@ -2,21 +2,12 @@ import { WorkstationShell } from "@/components/workstation/workstation-shell";
 import { workstationStations } from "@/content/lab";
 
 /**
- * Hero workstation. Everything here is server-rendered: the intro copy, the
- * SVG poster, the station hotspots and the station link list.
- *
- * WorkstationShell (client) wraps these and decides whether to load the 3D
- * scene on top. With 3D off, unavailable or still loading, this poster and its
- * links are exactly what visitors see and use.
+ * Hero workstation. The intro copy and SVG poster are server-rendered.
+ * WorkstationShell (client) wraps them, loads 3D when allowed, and owns the
+ * interactive station dock and information panels.
  */
 export function WorkstationStage() {
-  return (
-    <WorkstationShell
-      header={<StageHeader />}
-      poster={<PosterArt />}
-      dock={<StationDock />}
-    />
-  );
+  return <WorkstationShell header={<StageHeader />} poster={<PosterArt />} />;
 }
 
 function StageHeader() {
@@ -29,33 +20,9 @@ function StageHeader() {
         data-stage-hint
         className="mt-2 max-w-xs text-sm text-muted sm:max-w-sm"
       >
-        Pick a station to jump to that part of the portfolio.
+        Pick a station to explore that part of the portfolio.
       </p>
     </div>
-  );
-}
-
-/** Station links as a compact list. Always present for touch and keyboard use. */
-function StationDock() {
-  return (
-    <ul
-      data-station-dock
-      className="pointer-events-auto mt-3 grid grid-cols-2 gap-2 sm:hidden"
-    >
-      {workstationStations.map((station) => (
-        <li key={station.id}>
-          <a
-            href={station.href}
-            className="flex min-h-12 flex-col justify-center border border-line bg-surface/70 px-3 transition-colors hover:border-accent focus-visible:border-accent"
-          >
-            <span className="text-sm text-foreground">{station.label}</span>
-            <span data-station-desc className="text-xs text-muted">
-              {station.description}
-            </span>
-          </a>
-        </li>
-      ))}
-    </ul>
   );
 }
 
