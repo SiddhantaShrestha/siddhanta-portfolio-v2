@@ -30,7 +30,7 @@ export function HeroSection() {
         </div>
 
         <div className="order-2" data-reveal>
-          <WorkstationStage prefer3d />
+          <WorkstationStage />
         </div>
 
         <div className="order-3 max-w-xl lg:hidden" data-reveal>

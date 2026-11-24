@@ -60,3 +60,5 @@ export const workstationStations = [
     href: "/#skills",
   },
 ] as const;
+
+export type StationId = (typeof workstationStations)[number]["id"];
