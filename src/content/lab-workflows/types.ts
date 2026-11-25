@@ -14,6 +14,33 @@ export type LabFieldValue = {
   missing?: boolean;
 };
 
+export type LabChunkItem = {
+  id: string;
+  document: string;
+  visibility: "team" | "admins";
+  excerpt: string;
+  /** Whether the selected role can read this demonstration document. */
+  accessible: boolean;
+};
+
+export type LabRankingItem = {
+  rank: number;
+  document: string;
+  chunkLabel: string;
+  excerpt: string;
+};
+
+export type LabCriterionNote = {
+  criterion: string;
+  note: string;
+};
+
+export type LabClaimItem = {
+  claim: string;
+  supported: boolean;
+  evidence?: string;
+};
+
 export type LabStageOutput =
   | {
       kind: "text";
@@ -28,8 +55,32 @@ export type LabStageOutput =
   | {
       kind: "status";
       label: string;
-      status: "ok" | "blocked" | "ready";
+      status: "ok" | "blocked" | "ready" | "skipped";
       detail: string;
+    }
+  | {
+      kind: "chunks";
+      label: string;
+      items: LabChunkItem[];
+    }
+  | {
+      kind: "ranking";
+      label: string;
+      items: LabRankingItem[];
+      caption?: string;
+    }
+  | {
+      kind: "scores";
+      label: string;
+      /** Illustrative overall score only. No aggregation formula is claimed. */
+      overall: number;
+      caption: string;
+      criteria: LabCriterionNote[];
+    }
+  | {
+      kind: "claims";
+      label: string;
+      items: LabClaimItem[];
     };
 
 export type LabStageView = {
@@ -56,6 +107,11 @@ export type LabScenario = {
    * An invalid payload stops at validation and cannot continue.
    */
   maxReachableStageIndex: number;
+  /**
+   * Stage ids that remain reachable for inspection but are marked skipped
+   * for this scenario (for example revision when score >= 8).
+   */
+  skippedStageIds?: string[];
   /** Sample views keyed by stage id. */
   stageViews: Record<string, LabStageView>;
 };

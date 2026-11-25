@@ -140,6 +140,13 @@ export function isStageLocked(
   return stageIndex > maxReachableStageIndex;
 }
 
+export function isStageSkipped(
+  stageId: string,
+  skippedStageIds: string[] | undefined,
+): boolean {
+  return Boolean(skippedStageIds?.includes(stageId));
+}
+
 export function canGoNext(
   stageIndex: number,
   maxReachableStageIndex: number,

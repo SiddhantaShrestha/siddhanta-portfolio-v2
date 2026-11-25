@@ -9,6 +9,7 @@ type StageDetailProps = {
   stageCount: number;
   view: LabStageView | undefined;
   locked: boolean;
+  skipped: boolean;
 };
 
 export function StageDetail({
@@ -17,6 +18,7 @@ export function StageDetail({
   stageCount,
   view,
   locked,
+  skipped,
 }: StageDetailProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-8">
@@ -37,7 +39,13 @@ export function StageDetail({
         {locked ? (
           <p className="mt-5 border border-violet/35 bg-violet/10 px-3 py-3 text-sm leading-relaxed text-foreground/90">
             This stage is locked for the current scenario. Validation did not
-            pass, so content generation and publishing do not run.
+            pass, so later steps do not run.
+          </p>
+        ) : null}
+        {skipped && !locked ? (
+          <p className="mt-5 border border-violet/35 bg-violet/10 px-3 py-3 text-sm leading-relaxed text-foreground/90">
+            This stage is skipped for the current scenario. Later stages can
+            still run.
           </p>
         ) : null}
         {view?.note && !locked ? (

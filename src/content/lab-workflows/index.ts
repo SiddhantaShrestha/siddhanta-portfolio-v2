@@ -1,8 +1,14 @@
+import { citedocsWorkflow } from "@/content/lab-workflows/citedocs";
 import { jobPostWorkflow } from "@/content/lab-workflows/job-post";
+import { researchEvalWorkflow } from "@/content/lab-workflows/research-eval";
 import type { LabWorkflow } from "@/content/lab-workflows/types";
 
-/** Workflows registered for the interactive lab. Phase 5A ships Job Post only. */
-export const labWorkflows: LabWorkflow[] = [jobPostWorkflow];
+/** Workflows registered for the interactive lab. */
+export const labWorkflows: LabWorkflow[] = [
+  jobPostWorkflow,
+  citedocsWorkflow,
+  researchEvalWorkflow,
+];
 
 export function getLabWorkflow(id: string): LabWorkflow | undefined {
   return labWorkflows.find((workflow) => workflow.id === id);

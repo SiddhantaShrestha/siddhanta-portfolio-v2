@@ -12,6 +12,7 @@ import {
   createInitialLabState,
   getScenario,
   isStageLocked,
+  isStageSkipped,
   labReducer,
   type LabAction,
   type LabState,
@@ -24,7 +25,7 @@ type LabShellProps = {
 
 /**
  * Interactive workflow control panel.
- * Scenario choice changes how far the visitor can advance through stages.
+ * Scenario choice changes reachable stages and which sample outputs appear.
  */
 export function LabShell({ workflows }: LabShellProps) {
   const initialWorkflow = workflows[0];
@@ -52,6 +53,7 @@ export function LabShell({ workflows }: LabShellProps) {
     state.stageIndex,
     scenario.maxReachableStageIndex,
   );
+  const skipped = isStageSkipped(stage.id, scenario.skippedStageIds);
   const nextEnabled = canGoNext(
     state.stageIndex,
     scenario.maxReachableStageIndex,
@@ -69,12 +71,16 @@ export function LabShell({ workflows }: LabShellProps) {
       return `Stage ${state.stageIndex + 1} of ${workflow.stages.length}: ${stage.title}. Later stages are locked for this scenario.`;
     }
     if (locked) {
-      return `Stage ${state.stageIndex + 1} of ${workflow.stages.length}: ${stage.title}. Locked until validation passes.`;
+      return `Stage ${state.stageIndex + 1} of ${workflow.stages.length}: ${stage.title}. Locked for this scenario.`;
+    }
+    if (skipped) {
+      return `Stage ${state.stageIndex + 1} of ${workflow.stages.length}: ${stage.title}. Skipped for this scenario.`;
     }
     return `Stage ${state.stageIndex + 1} of ${workflow.stages.length}: ${stage.title}.`;
   }, [
     locked,
     scenario.maxReachableStageIndex,
+    skipped,
     stage.title,
     state.stageIndex,
     workflow.stages.length,
@@ -153,6 +159,7 @@ export function LabShell({ workflows }: LabShellProps) {
           stages={workflow.stages}
           activeIndex={state.stageIndex}
           maxReachableStageIndex={scenario.maxReachableStageIndex}
+          skippedStageIds={scenario.skippedStageIds}
           onSelect={(index) => dispatch({ type: "goToStage", index })}
         />
       </div>
@@ -164,6 +171,7 @@ export function LabShell({ workflows }: LabShellProps) {
           stageCount={workflow.stages.length}
           view={view}
           locked={locked}
+          skipped={skipped}
         />
       </div>
 
