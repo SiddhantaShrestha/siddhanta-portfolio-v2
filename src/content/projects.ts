@@ -28,6 +28,8 @@ export type CaseStudyFigure = ProjectImage & {
   caption: string;
   /** Opens a native dialog so visitors can inspect a large diagram or screenshot. */
   expandable?: boolean;
+  /** Button text for the expandable viewer. Defaults to "View full image". */
+  expandLabel?: string;
 };
 
 /** One verified architecture / pipeline step. No speculative diagrams. */
@@ -775,6 +777,7 @@ export const projects: Project[] = [
           caption:
             "Exported n8n workflow diagram for the documented LinkedIn vacancy-to-post path. Facebook and Instagram are confirmed team publishing channels; their node-level graphs are not reconstructed here.",
           expandable: true,
+          expandLabel: "View full diagram",
         },
       ],
       results: [
@@ -822,51 +825,86 @@ export const projects: Project[] = [
       },
     ],
     caseStudy: {
+      published: true,
+      sectionOrder: [
+        "overview",
+        "problem",
+        "role",
+        "architecture",
+        "decisions",
+        "features",
+        "evidence",
+      ],
       overview:
         "An independently developed research evaluation pipeline. It retrieves relevant passages, generates an initial report, evaluates that report against defined criteria, revises when the score falls below 8, and performs grounding checks against the retrieved text.",
+      glance: [
+        { label: "Type", value: "Independent applied AI project" },
+        { label: "Ownership", value: "Independently developed" },
+        { label: "Language", value: "Python" },
+        { label: "Model provider", value: "Groq" },
+        { label: "Revision rule", value: "Revise when the score is below 8" },
+        { label: "Public demo", value: "Vercel deployment" },
+      ],
       problem: {
         heading: "Problem and motivation",
         body: "Single-pass LLM reports are hard to inspect. Splitting retrieval, generation, evaluation, revision, and grounding makes each stage reviewable and replaceable.",
       },
       role: {
-        heading: "My role",
+        heading: "My contribution",
         body: "Independently developed. I designed and implemented the evaluation workflow and supporting pipeline code in the public repository.",
       },
+      contributions: [
+        "Evaluation workflow design",
+        "Retrieval and draft generation stages",
+        "Scoring against relevance, completeness, clarity, and evidence use",
+        "Conditional revision below a score of 8",
+        "Grounding verification against retrieved passages",
+        "Groq-backed generation and evaluation steps",
+        "Public pipeline code and Vercel demonstration",
+      ],
       architecture: {
+        label: "Pipeline",
+        heading: "How the evaluation loop runs",
         summary:
-          "Shared orchestration in src/pipeline.py with Groq as the verified LLM provider. Confirmed stages: retrieve → generate → evaluate → revise if below 8 → grounding. Exact user-facing UI framework is unconfirmed and is not claimed here.",
+          "Shared orchestration lives in src/pipeline.py, with Groq as the verified model provider. The stages run in order: retrieve, generate, evaluate, revise if the score is below 8, then check grounding.",
         steps: [
           {
             title: "Retrieve",
             detail:
               "Load local source documents, chunk passages, and rank relevant text for grounding.",
+            tags: ["Local sources", "Chunked passages", "Ranked relevance"],
           },
           {
             title: "Generate",
             detail:
               "Produce an initial structured research draft from the retrieved passages.",
+            tags: ["Groq", "Structured draft"],
           },
           {
             title: "Evaluate",
             detail:
               "Score the draft against defined criteria, including relevance, completeness, clarity, and evidence use.",
+            tags: ["Relevance", "Completeness", "Clarity", "Evidence use"],
           },
           {
             title: "Revise when below 8",
             detail:
               "If the evaluation score falls below the configured threshold of 8, revise the draft using the evaluator critique.",
+            tags: ["Threshold: 8", "Uses evaluator critique"],
+            badge: "Score below 8",
           },
           {
             title: "Grounding check",
             detail:
               "Verify claims against retrieved passages and record run artifacts for inspection.",
+            tags: ["Claims vs passages", "Run artifacts"],
           },
         ],
       },
       features: [
-        "Autonomous retrieve → generate → evaluate loop.",
+        "Autonomous retrieve, generate, and evaluate loop.",
         "Conditional revision below score 8.",
-        "Grounding / claim verification against sources.",
+        "Grounding and claim verification against sources.",
         "Groq-backed generation and evaluation steps.",
         "Public Vercel demonstration of the workflow.",
       ],
@@ -880,15 +918,14 @@ export const projects: Project[] = [
           body: "Both revised and unrevised paths still check claims against retrieved passages so fluency cannot replace source support.",
         },
         {
-          title: "Do not over-claim the UI stack",
-          body: "Repository docs mention multiple possible UIs. The case study does not name Next.js or Streamlit as the shipped interface until that choice is confirmed. OpenClaw is not part of this project.",
+          title: "Keep the public page focused on the verified pipeline",
+          body: "The case study documents the evaluation workflow in src/pipeline.py, the Groq-backed stages, and the public demo link so readers can inspect the implemented loop directly.",
         },
       ],
       figures: [],
       results: [
-        "Pipeline behavior (retrieve → generate → evaluate → revise if below 8 → grounding) matches the public pipeline and portfolio evidence card.",
-        "Live demo verified responding: https://autonomous-research-eval-agent.vercel.app (HTTP 200 during Phase 4A).",
-        "Render API health endpoint responded to GET with status ok after a cold start. It is an operational check, not a user-facing demo, and is not linked as one.",
+        "Pipeline order in the public repository: retrieve, generate, evaluate, revise if the score is below 8, then grounding.",
+        "The live demo link was checked and responded in November 2026.",
       ],
     },
   },
@@ -933,43 +970,82 @@ export const projects: Project[] = [
       },
     ],
     caseStudy: {
+      published: true,
+      sectionOrder: [
+        "overview",
+        "problem",
+        "role",
+        "architecture",
+        "screenshots",
+        "features",
+        "decisions",
+        "evidence",
+      ],
+      galleryLayout: "stack",
+      galleryLabel: "Product",
+      galleryTitle: "The app in use",
       overview:
         "A Streamlit app that loads English YouTube captions into a local FAISS index and answers questions only from that transcript context via OpenRouter.",
+      glance: [
+        { label: "Type", value: "Video Q&A application" },
+        { label: "Interface", value: "Streamlit" },
+        { label: "Orchestration", value: "LangChain" },
+        { label: "Retrieval", value: "FAISS, top 4 passages (k=4)" },
+        {
+          label: "Embeddings",
+          value: "Hugging Face all-MiniLM-L6-v2",
+        },
+        { label: "Chat model access", value: "OpenRouter" },
+        { label: "Captions", value: "English only" },
+      ],
       problem: {
         heading: "Problem and motivation",
         body: "Watching full videos to find one statement is slow. Caption-grounded Q&A lets a viewer ask topic questions and get answers limited to what was said.",
       },
       role: {
-        heading: "My role",
-        body: "Ownership (independent vs collaborative) is not yet confirmed. Public evidence includes the repository, live Streamlit deploy, and portfolio write-up. Role language stays neutral until ownership is verified.",
+        heading: "Project evidence",
+        body: "This page documents the public repository, the live Streamlit deployment, and the verified retrieval pipeline in the source code. It does not describe individual ownership of the project.",
       },
       architecture: {
+        label: "Pipeline",
+        heading: "How retrieval works",
         summary:
-          "Streamlit UI in app.py. Transcript fetch and RAG helpers in rag.py. Embeddings run locally; chat goes through OpenRouter.",
+          "The Streamlit interface lives in app.py. Transcript fetching and the retrieval helpers live in rag.py. Embeddings run locally; chat requests go through OpenRouter.",
         steps: [
           {
             title: "Parse video id",
             detail: "Accept a YouTube URL or video id from the UI.",
+            tags: ["URL or video ID", "Streamlit"],
           },
           {
             title: "Fetch English transcript",
             detail:
               "Load captions through youtube-transcript-api. English only; auto-captions can be noisy.",
+            tags: ["youtube-transcript-api", "English only"],
           },
           {
             title: "Chunk and embed",
             detail:
               "RecursiveCharacterTextSplitter at 1000 characters with 200 overlap. Embed with sentence-transformers/all-MiniLM-L6-v2.",
+            tags: [
+              "1000 characters",
+              "200 overlap",
+              "all-MiniLM-L6-v2",
+              "Hugging Face",
+            ],
           },
           {
             title: "Index in session FAISS",
             detail:
               "Store vectors in a local FAISS index kept for the browser session. Index rebuilds when a new video loads.",
+            tags: ["FAISS", "Session only"],
           },
           {
             title: "Retrieve and answer",
             detail:
               "Similarity search with k=4 (verified in rag.py). Send retrieved passages plus the question to ChatOpenAI via OpenRouter. Summaries can use broader transcript context.",
+            tags: ["k = 4", "LangChain", "OpenRouter"],
+            badge: "Top 4 passages",
           },
         ],
       },
@@ -997,11 +1073,12 @@ export const projects: Project[] = [
           height: 942,
           caption:
             "Streamlit UI with video URL field, Load video control, and chat input.",
+          expandable: true,
         },
       ],
       results: [
-        "Public Streamlit deploy is linked from the portfolio.",
-        "Retriever k=4 matches both portfolio copy and rag.py search_kwargs.",
+        "A public Streamlit deployment and the source repository are linked above.",
+        "The retriever returns the four closest passages (k=4), as set in rag.py.",
       ],
     },
   },
@@ -1040,33 +1117,73 @@ export const projects: Project[] = [
       },
     ],
     caseStudy: {
+      published: true,
+      sectionOrder: [
+        "overview",
+        "problem",
+        "role",
+        "features",
+        "architecture",
+        "screenshots",
+        "decisions",
+        "evidence",
+      ],
+      galleryLayout: "stack",
       overview:
         "RecipeNest is an independently developed full-stack recipe management application. It covers registration and authentication, recipe browsing and management, favorites, an admin dashboard, and eSewa-paid subscriptions.",
+      glance: [
+        { label: "Type", value: "Full-stack web application" },
+        { label: "Ownership", value: "Independently developed" },
+        { label: "Frontend", value: "React" },
+        { label: "Backend", value: "Node.js, Express" },
+        { label: "Database", value: "MongoDB" },
+        { label: "Payments", value: "eSewa" },
+      ],
       problem: {
         heading: "Problem and motivation",
         body: "A recipe product needs everyday content workflows plus a local payment path for premium access. RecipeNest combines recipe management features with eSewa subscription handling on an Express backend.",
       },
       role: {
-        heading: "My role",
+        heading: "My contribution",
         body: "Independently developed. I built the application across the React frontend, Express API, MongoDB data layer, and eSewa payment integration.",
       },
+      contributions: [
+        "React frontend",
+        "Express API",
+        "MongoDB data layer",
+        "User registration and authentication",
+        "Recipe browsing, search, creation, and management",
+        "Categories, filtering, and favorites",
+        "Administrative dashboard",
+        "eSewa payment integration",
+      ],
       architecture: {
         summary:
-          "React frontend, Express backend, MongoDB. eSewa routes and UI components exist in source for payment initiate, verify, and status. PayPal appears only as an unused frontend dependency and is not a working integration.",
+          "React frontend, Express backend, MongoDB. The stages below group the system by layer and are not a single request sequence. eSewa routes and UI components exist in source for payment initiate, verify, and status.",
         steps: [
           {
-            title: "Frontend",
+            title: "React frontend",
             detail:
-              "React app for auth, recipe browsing/search, creation and management, categories/filtering, favorites, admin dashboard, and eSewa payment UI.",
+              "React app for auth, recipe browsing and search, creation and management, categories and filtering, favorites, the admin dashboard, and the eSewa payment UI.",
+            tags: ["React", "Auth", "Browse and search", "Admin UI"],
           },
           {
-            title: "Backend API",
+            title: "Express backend API",
             detail:
-              "Express routes for application features and eSewa payment initiation, verification, and transaction status.",
+              "Express routes for application features, plus eSewa payment initiation, verification, and transaction status.",
+            tags: ["Node.js", "Express", "REST routes"],
           },
           {
-            title: "Data store",
+            title: "MongoDB data store",
             detail: "MongoDB as the application database.",
+            tags: ["MongoDB"],
+          },
+          {
+            title: "eSewa payment path",
+            detail:
+              "Subscription payments use eSewa. The source includes routes and UI for payment initiation, verification, and transaction status.",
+            tags: ["eSewa", "Initiate", "Verify", "Status"],
+            badge: "Payments",
           },
         ],
       },
@@ -1081,8 +1198,8 @@ export const projects: Project[] = [
       ],
       decisions: [
         {
-          title: "Ship eSewa only",
-          body: "Working payment integration is eSewa. A PayPal package may appear in frontend dependencies, but it is not treated as an implemented payment path.",
+          title: "Use eSewa for subscriptions",
+          body: "Subscription payments use eSewa, with source routes and UI for payment initiation, verification, and transaction status.",
         },
       ],
       figures: [
@@ -1092,6 +1209,7 @@ export const projects: Project[] = [
           width: 1600,
           height: 900,
           caption: "RecipeNest recipe browsing interface.",
+          expandable: true,
         },
       ],
       results: [

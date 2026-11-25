@@ -81,7 +81,7 @@ export function CsExpandableFigure({
             className="inline-flex min-h-11 items-center gap-2 border border-accent/40 bg-accent/10 px-4 text-sm tracking-wide text-foreground transition-colors hover:border-accent hover:bg-accent/15"
           >
             <Expand size={16} aria-hidden />
-            View full diagram
+            {figure.expandLabel ?? "View full image"}
           </button>
         </div>
       ) : null}
