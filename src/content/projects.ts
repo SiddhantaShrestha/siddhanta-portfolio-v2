@@ -32,6 +32,66 @@ export type CaseStudyFigure = ProjectImage & {
 export type CaseStudyArchStep = {
   title: string;
   detail: string;
+  /** Short verified facts shown as labels under the step. */
+  tags?: string[];
+  /** Optional emphasis label for a step that enforces a key boundary. */
+  badge?: string;
+};
+
+/** Small label and value pair for the at-a-glance rail. */
+export type CaseStudyFact = {
+  label: string;
+  value: string;
+};
+
+/** One search method scored on the same question set. */
+export type CaseStudyEvaluationMethod = {
+  label: string;
+  detail?: string;
+  hit1: number;
+  hit5: number;
+  mrr: number;
+  /** Marks the method the shipped product uses. */
+  shipped?: boolean;
+};
+
+export type CaseStudyEvaluationPoint = {
+  passageChars: number;
+  hit5: number;
+};
+
+export type CaseStudyEvaluationSeries = {
+  label: string;
+  points: CaseStudyEvaluationPoint[];
+};
+
+/**
+ * Retrieval evaluation with its full context. Hit@k measures whether the
+ * expected source passage appears in the top k retrieved results. It does
+ * not measure answer wording or general AI accuracy.
+ */
+export type CaseStudyEvaluation = {
+  title: string;
+  metricLabel: string;
+  definition: string;
+  sampleSize: number;
+  sampleNote: string;
+  /** Fixed settings for the headline comparison. */
+  config: CaseStudyFact[];
+  headline: {
+    hits: number;
+    label: string;
+    context: string;
+  };
+  methodsCaption: string;
+  methods: CaseStudyEvaluationMethod[];
+  passageLength?: {
+    caption: string;
+    series: CaseStudyEvaluationSeries[];
+  };
+  checks?: string[];
+  caveats: string[];
+  source: ProjectLink;
 };
 
 export type CaseStudyDecision = {
@@ -45,9 +105,16 @@ export type CaseStudyDecision = {
  * Phase 4B will render these sections; Phase 4A only stores verified draft copy.
  */
 export type ProjectCaseStudy = {
+  /** Only published case studies use the Phase 4B layout. Others keep the stub. */
+  published?: boolean;
   overview?: string;
+  /** At-a-glance rail beside the overview. */
+  glance?: CaseStudyFact[];
   problem?: CaseStudySection;
   role?: CaseStudySection;
+  /** Confirmed areas of personal work, shown as a list under the role text. */
+  contributions?: string[];
+  evaluation?: CaseStudyEvaluation;
   architecture?: {
     summary: string;
     steps: CaseStudyArchStep[];
@@ -231,80 +298,193 @@ export const projects: Project[] = [
       },
     ],
     caseStudy: {
+      published: true,
       overview:
-        "CiteDocs is an independently developed team-document Q&A app. Questions are answered only from chunks the signed-in role may read, and each answer cites the supporting passage.",
+        "CiteDocs is a team-document Q&A app I built independently. A question is answered only from passages the signed-in role may read, and every answer shows the passage it came from. The search step is tested on its own against a fixed set of questions, so retrieval quality is measured instead of assumed.",
+      glance: [
+        { label: "Type", value: "Personal project" },
+        { label: "Ownership", value: "Independently developed" },
+        { label: "App", value: "Next.js, Prisma" },
+        { label: "Data", value: "PostgreSQL, pgvector" },
+        { label: "Models", value: "Ollama by default, Gemini optional" },
+        { label: "Retrieval test", value: "Hit@5 36/41 at 300 characters" },
+      ],
       problem: {
         heading: "Problem and motivation",
-        body: "Teams need answers grounded in their own documents without leaking admin-only material to members. Chat over a shared corpus fails when visibility differs by role.",
+        body: "Teams keep answers in documents with different audiences. A shared chat over every file can leak admin-only material to a member, and an answer with no source is hard to trust. CiteDocs treats permissions and citations as part of the application, so the search step never sees what the user is not allowed to read.",
       },
       role: {
-        heading: "My role",
-        body: "Independently developed. I implemented document uploading and processing; embedding generation and semantic retrieval; permission-based document access controls; AI question answering with source citations; backend and database architecture; the frontend interface; retrieval evaluation and improvements; and application deployment.",
+        heading: "My contribution",
+        body: "I developed CiteDocs independently, from the database to the interface and deployment. The areas below are the parts I implemented.",
       },
+      contributions: [
+        "Document uploading and processing",
+        "Embedding generation and semantic retrieval",
+        "Permission-based document access controls",
+        "AI question answering with source citations",
+        "Backend and database architecture",
+        "Frontend interface",
+        "Retrieval evaluation and improvements",
+        "Application deployment",
+      ],
       architecture: {
         summary:
-          "Next.js App Router with Prisma and Postgres/pgvector. Embeddings and answers default to local Ollama; optional hosted Gemini. Similarity search uses raw SQL against vector(768); other queries use Prisma.",
+          "A Next.js application on Prisma and PostgreSQL with the pgvector extension. Similarity search is raw SQL against a vector(768) column. Every other query goes through Prisma. Embeddings and answers run on local Ollama models by default, with hosted Gemini as an option.",
         steps: [
           {
-            title: "Auth and membership",
+            title: "Sign in and membership",
             detail:
-              "Email/password auth. Users belong to a team as admin or member. Role and team are read from the server session on each ask.",
+              "Email and password sign-in. A user belongs to a team as an admin or a member. Role and team come from the server session on every question, never from the client.",
+            tags: ["Admin or member", "Server-side session"],
           },
           {
             title: "Documents and chunks",
             detail:
-              "Upload text or PDF. Visibility is team or admins, copied onto every chunk at upload. Chunks default to 300 characters with a small overlap.",
+              "An admin uploads text or PDF and sets visibility to team or admins. The document is split into chunks, and visibility is copied onto every chunk.",
+            tags: ["Text or PDF", "team or admins", "300-character chunks"],
           },
           {
             title: "Embeddings",
             detail:
-              "Default Ollama nomic-embed-text into vector(768). Hosted path uses gemini-embedding-001 truncated to 768. Chunks store the embedding model name; mismatched providers refuse ask until re-index.",
+              "Each chunk is embedded and stored in pgvector. Each chunk records the model that embedded it, and asking is refused after a provider switch until the documents are re-indexed.",
+            tags: [
+              "vector(768)",
+              "nomic-embed-text via Ollama",
+              "gemini-embedding-001, optional",
+            ],
           },
           {
-            title: "Permission-filtered retrieval",
+            title: "Permission-filtered search",
             detail:
-              "Vector search filters by team and role in SQL. No post-fetch hiding. Exact scan in the demo (no HNSW) so permission filters are not undermined by approximate neighbors.",
+              "The vector search filters by team and role inside the SQL query. Nearby chunks are never fetched and hidden afterwards. The demo uses an exact scan, with no vector index.",
+            tags: ["Filter in SQL", "Exact scan", "Top 5 chunks"],
+            badge: "Permission boundary",
           },
           {
-            title: "Answer with citations",
+            title: "Cited answer",
             detail:
-              "Top-5 chunks by default. The app numbers sentences in retrieved chunks, asks the model for a sentence number, and prints that exact sentence to avoid model rewrites mixing facts.",
+              "The retrieved sentences are numbered. The model returns only a sentence number, and the app prints that exact sentence together with its document, chunk, and a short quote.",
+            tags: ["Sentence numbers", "Document and chunk shown"],
           },
         ],
       },
       features: [
-        "Document upload and processing.",
-        "Embedding generation and semantic retrieval.",
-        "Permission-based document access (team vs admins).",
-        "AI answers with source citations.",
-        "Retrieval evaluation suite and iterative improvements.",
-        "Deployed demo application.",
+        "Two roles on a team, admin and member",
+        "Document visibility set to team or admins, enforced in the search query",
+        "Answers that cite the document, the chunk, and a short quote",
+        "Local-first models, with a hosted Gemini option behind a setting",
+        "A repeatable retrieval test over a fixed question set",
+        "Seeded demo users so the permission behavior is easy to try",
       ],
       decisions: [
         {
-          title: "Filter permissions inside vector search",
-          body: "Members must never retrieve admins chunks even when those chunks are nearest. Search applies team and role filters in SQL instead of fetching neighbors and hiding them afterward.",
+          title: "Filter inside the search, not after it",
+          body: "A member must never receive an admins chunk, even when it is the closest match. Fetching nearest chunks and hiding some afterwards leaves the restricted text in the pipeline. The team and role filter runs in the vector query, and a test seeds an admins chunk whose text is the question to check it.",
         },
         {
           title: "No vector index in the demo",
-          body: "HNSW can return fewer than top-k rows after a permission filter. An exact scan keeps evaluation and the permission demo predictable.",
+          body: "pgvector can use an HNSW index before the permission filter applies, so a member could get fewer than five rows, or none, when the nearest chunks are admin-only. An exact scan avoids that.",
         },
         {
-          title: "Sentence-number copy for answers",
-          body: "After retrieval found the right bonus-payment chunk, the chat model still rewrote and mixed facts. Numbering sentences and copying the chosen sentence fixed that failure mode.",
+          title: "Copy the sentence instead of letting the model rewrite it",
+          body: "A question about when engineering bonuses are paid retrieved the right chunk, but the local model rewrote the sentence and mixed in other facts. The app now numbers the retrieved sentences, asks the model for a number only, and prints that sentence itself.",
         },
         {
-          title: "Chunk size chosen from Hit@5 tests",
-          body: "300-character passages scored best for local vector Hit@5 (36/41). Larger chunks helped keyword search but hurt vector Hit@5 and MRR. The product ask path uses vectors only; keyword and hybrid remain comparison methods.",
+          title: "Choose passage length from measurements",
+          body: "Smaller passages helped vector search and larger ones helped keyword search, so 300 characters was kept for the vector-only product. Keyword and hybrid search were measured as comparisons and are not part of what a user gets.",
         },
       ],
+      evaluation: {
+        title: "Retrieval evaluation",
+        metricLabel: "Hit@5",
+        definition:
+          "Hit@5 counts a question as a hit when the passage that should answer it appears in the top five retrieved results. It scores the search step only. It does not score the wording of the generated answer and it is not a general measure of AI accuracy.",
+        sampleSize: 41,
+        sampleNote:
+          "41 questions, each naming the passage that should be found. 24 filler documents sit on the same team so the right passage competes with other text.",
+        config: [
+          { label: "Questions", value: "41" },
+          { label: "Passage length", value: "300 characters" },
+          { label: "Results checked", value: "Top 5" },
+          { label: "Competing documents", value: "24 filler documents" },
+        ],
+        headline: {
+          hits: 36,
+          label: "Vector search, local embeddings",
+          context:
+            "The expected passage appeared in the top five results for 36 of 41 questions (87.8%), using 300-character passages and local nomic-embed-text embeddings.",
+        },
+        methodsCaption:
+          "Search methods compared on the same 41 questions at 300-character passages",
+        methods: [
+          {
+            label: "Vector search, local embeddings",
+            detail: "What the app uses by default",
+            hit1: 20,
+            hit5: 36,
+            mrr: 0.653,
+            shipped: true,
+          },
+          {
+            label: "Vector search, Gemini embeddings",
+            detail: "Optional hosted provider",
+            hit1: 20,
+            hit5: 36,
+            mrr: 0.655,
+          },
+          {
+            label: "Hybrid",
+            detail:
+              "Reciprocal rank fusion of the keyword and vector top-5 lists",
+            hit1: 21,
+            hit5: 34,
+            mrr: 0.642,
+          },
+          {
+            label: "Keyword search",
+            detail: "Comparison only",
+            hit1: 16,
+            hit5: 27,
+            mrr: 0.497,
+          },
+        ],
+        passageLength: {
+          caption: "Hit@5 by passage length, out of 41 questions",
+          series: [
+            {
+              label: "Vector search",
+              points: [
+                { passageChars: 300, hit5: 36 },
+                { passageChars: 500, hit5: 35 },
+                { passageChars: 800, hit5: 33 },
+              ],
+            },
+            {
+              label: "Keyword search",
+              points: [
+                { passageChars: 300, hit5: 27 },
+                { passageChars: 500, hit5: 27 },
+                { passageChars: 800, hit5: 32 },
+              ],
+            },
+          ],
+        },
+        checks: [
+          "Four extra checks confirm that a member search must not return an admins chunk.",
+        ],
+        caveats: [
+          "With 41 questions, two or three hits move the percentages a lot. Read the gaps between methods as a direction, not a precise ranking.",
+          "Hit@5 scores whether the right passage was found. Answer wording is a separate problem, and the sentence-number change above came from a wording failure that retrieval scoring did not catch.",
+          "Keyword and hybrid search are measured for comparison. The app searches with vectors only.",
+        ],
+        source: {
+          label: "How the tests were run (README)",
+          href: "https://github.com/SiddhantaShrestha/citedocs#how-we-tested",
+          external: true,
+        },
+      },
       figures: [],
-      results: [
-        "Retrieval evaluation (not a general answer-accuracy score): with 300-character passages, vector search placed the expected source in the top five results for 36 of 41 questions (87.8% Hit@5). Hit@1 was 20/41 (48.8%); MRR 0.653.",
-        "Keyword Hit@5 at 300 characters: 27/41. Hybrid Hit@5: 34/41. Gemini embeddings tied local vectors on Hit@5 (36/41) in the same suite.",
-        "Automated permission check: a member ask never returns a seeded admins chunk even when that chunk text matches the question.",
-        "Product screenshots remain pending. The live demo requires sign-in; Phase 4A keeps the existing evidence panel rather than fabricating UI captures.",
-      ],
+      results: [],
     },
   },
   {
