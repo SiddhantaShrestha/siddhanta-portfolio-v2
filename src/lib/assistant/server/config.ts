@@ -8,7 +8,9 @@ import "server-only";
  * ASSISTANT_MODEL                     optional, defaults to DEFAULT_MODEL
  * ASSISTANT_PRODUCTION_GATES_CONFIRMED  must be "true" before the model path
  *                                     runs in a production build (see
- *                                     docs/phase-6a-assistant.md)
+ *                                     docs/phase-6a-assistant.md and
+ *                                     docs/phase-6b-production.md)
+ * ASSISTANT_DAILY_LIMIT               optional, read by runtime.ts
  *
  * None of these use the NEXT_PUBLIC_ prefix. Values are never logged.
  */
@@ -42,6 +44,15 @@ type Env = Record<string, string | undefined>;
 const ACCOUNT_ID = /^[a-f0-9]{32}$/i;
 const MODEL_ID = /^@cf\/[a-z0-9._-]+\/[a-z0-9._-]+$/i;
 
+/**
+ * Fails closed: anything except an explicit development or test mode counts as
+ * production. Workers do not always define NODE_ENV, and a missing value must
+ * never open the model path.
+ */
+export function isProductionMode(nodeEnv: string | undefined): boolean {
+  return nodeEnv !== "development" && nodeEnv !== "test";
+}
+
 export function readConfig(env: Env = process.env): ConfigResult {
   const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim();
   const apiToken = env.CLOUDFLARE_AI_API_TOKEN?.trim();
@@ -51,7 +62,7 @@ export function readConfig(env: Env = process.env): ConfigResult {
   }
 
   if (
-    env.NODE_ENV === "production" &&
+    isProductionMode(env.NODE_ENV) &&
     env.ASSISTANT_PRODUCTION_GATES_CONFIRMED !== "true"
   ) {
     return { status: "blocked", reason: "production_gates" };

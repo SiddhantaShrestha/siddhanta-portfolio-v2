@@ -17,6 +17,14 @@ const FORBIDDEN = [
   "MAX_MALFORMED_EVENTS",
   "RULES\\n1. Use only the KNOWLEDGE",
   "Must not claim",
+  // Phase 6B: gate, bindings and runtime lookup are server only.
+  "ASSISTANT_GATE",
+  "ASSISTANT_EDGE_LIMIT",
+  "ASSISTANT_DAILY_LIMIT",
+  "AssistantGate",
+  "cloudflare:workers",
+  "__cloudflare-context__",
+  "createDurableGate",
 ];
 
 function* walk(dir) {

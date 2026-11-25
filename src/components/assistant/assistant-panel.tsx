@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SendHorizontal, Trash2, X } from "lucide-react";
+import { ChevronDown, SendHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
@@ -9,6 +9,9 @@ import { ASSISTANT_LIMITS } from "@/lib/assistant/shared/protocol";
 import { starterQuestions } from "@/lib/assistant/shared/starter-questions";
 import { useAssistantChat } from "./use-assistant-chat";
 import type { ChatMessage } from "./use-assistant-chat";
+
+/** Questions shown before the visitor asks for more, or types their own. */
+const INITIAL_STARTERS = 3;
 
 type AssistantPanelProps = {
   panelId: string;
@@ -19,9 +22,14 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
   const { messages, status, announcement, send, stop, clear } =
     useAssistantChat();
   const [draft, setDraft] = useState("");
+  // Empty state: show 3 starters, with a way to see the rest.
+  const [showAllStarters, setShowAllStarters] = useState(false);
+  // After the chat starts: suggestions stay one tap away, closed by default.
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const startersId = useId();
   const inputId = useId();
   const busy = status !== "idle";
 
@@ -36,15 +44,23 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
     if (el && messages.length > 0) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  const last = messages[messages.length - 1];
-  const showStarters = messages.length === 0 || Boolean(last?.error);
+  const hasConversation = messages.length > 0;
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
     if (busy || draft.trim().length === 0) return;
     const question = draft;
     setDraft("");
+    setSuggestionsOpen(false);
     void send(question);
+  }
+
+  function ask(starter: (typeof starterQuestions)[number]) {
+    if (busy) return;
+    setSuggestionsOpen(false);
+    void send(starter.question, starter.id);
+    // The starter button is about to unmount. Keep focus in the panel.
+    inputRef.current?.focus();
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -75,8 +91,12 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
       aria-labelledby={titleId}
       onKeyDown={onKeyDown}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-[45] flex h-[min(85dvh,36rem)] flex-col border border-line-strong bg-navy/95 text-foreground shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-sm",
-        "sm:inset-x-auto sm:right-4 sm:bottom-20 sm:h-[34rem] sm:w-[24rem]",
+        "fixed inset-x-0 bottom-0 z-[45] flex max-h-[85dvh] flex-col border border-line-strong bg-navy/95 text-foreground shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-sm",
+        "sm:inset-x-auto sm:right-4 sm:bottom-20 sm:w-[24rem]",
+        // Compact until a conversation starts, then the history gets the room.
+        hasConversation
+          ? "h-[min(85dvh,36rem)] sm:h-[34rem]"
+          : "h-auto sm:max-h-[34rem]",
       )}
     >
       <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
@@ -111,47 +131,97 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
       </header>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {messages.length === 0 ? (
-          <p className="mb-3 text-sm leading-relaxed text-muted">
-            Ask about projects, experience or skills. Answers come from the
-            verified content on this site and link to the case studies.
-          </p>
-        ) : (
+        {hasConversation ? (
           <ol className="space-y-4" aria-label="Conversation">
             {messages.map((message) => (
               <MessageItem key={message.id} message={message} />
             ))}
           </ol>
-        )}
-
-        {showStarters ? (
-          <div className={cn(messages.length > 0 && "mt-4")}>
+        ) : (
+          <>
+            <p className="mb-2 text-sm leading-relaxed text-muted">
+              Answers come from verified content on this site.
+            </p>
             <p className="mb-2 text-xs tracking-wide text-muted uppercase">
               Suggested questions
             </p>
-            <ul className="flex flex-col gap-2">
-              {starterQuestions.map((starter) => (
+            <ul id={startersId} className="flex flex-col gap-2">
+              {(showAllStarters
+                ? starterQuestions
+                : starterQuestions.slice(0, INITIAL_STARTERS)
+              ).map((starter) => (
                 <li key={starter.id}>
-                  <button
-                    type="button"
+                  <StarterButton
+                    question={starter.question}
                     disabled={busy}
-                    onClick={() => void send(starter.question, starter.id)}
-                    className="min-h-11 w-full border border-line bg-surface px-3 py-2 text-left text-sm transition-colors hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {starter.question}
-                  </button>
+                    onClick={() => ask(starter)}
+                  />
                 </li>
               ))}
             </ul>
-          </div>
-        ) : null}
+            {starterQuestions.length > INITIAL_STARTERS ? (
+              <button
+                type="button"
+                onClick={() => setShowAllStarters((value) => !value)}
+                aria-expanded={showAllStarters}
+                aria-controls={startersId}
+                className="mt-2 inline-flex min-h-11 items-center gap-1 text-xs text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {showAllStarters ? "Fewer questions" : "More questions"}
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn("size-3.5", showAllStarters && "rotate-180")}
+                />
+              </button>
+            ) : null}
+          </>
+        )}
       </div>
 
+      {hasConversation && !busy ? (
+        <div className="border-t border-line px-3 pt-1">
+          <button
+            type="button"
+            onClick={() => setSuggestionsOpen((value) => !value)}
+            aria-expanded={suggestionsOpen}
+            aria-controls={startersId}
+            className="inline-flex min-h-11 items-center gap-1 text-xs text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Suggested questions
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("size-3.5", suggestionsOpen && "rotate-180")}
+            />
+          </button>
+          {suggestionsOpen ? (
+            <ul
+              id={startersId}
+              className="mb-2 flex max-h-28 flex-col gap-2 overflow-y-auto"
+            >
+              {starterQuestions.map((starter) => (
+                <li key={starter.id}>
+                  <StarterButton
+                    question={starter.question}
+                    disabled={busy}
+                    onClick={() => ask(starter)}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
 
-      <form onSubmit={submit} className="border-t border-line p-3">
+      <form
+        onSubmit={submit}
+        className={cn(
+          "p-3",
+          !(hasConversation && !busy) && "border-t border-line",
+        )}
+      >
         <label htmlFor={inputId} className="sr-only">
           Your question
         </label>
@@ -164,7 +234,7 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
             onKeyDown={onInputKeyDown}
             rows={2}
             maxLength={ASSISTANT_LIMITS.maxUserChars}
-            placeholder="Ask a question"
+            placeholder="Ask about my projects or skills"
             className="min-h-11 flex-1 resize-none border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           />
           {busy ? (
@@ -192,6 +262,27 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
         </p>
       </form>
     </section>
+  );
+}
+
+function StarterButton({
+  question,
+  disabled,
+  onClick,
+}: {
+  question: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="min-h-11 w-full border border-line bg-surface px-3 py-2 text-left text-sm transition-colors hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {question}
+    </button>
   );
 }
 

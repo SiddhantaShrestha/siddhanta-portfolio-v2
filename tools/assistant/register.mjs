@@ -7,6 +7,9 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+// Tests run in "test" mode. Unset would count as production (fail closed).
+process.env.NODE_ENV ??= "test";
+
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",

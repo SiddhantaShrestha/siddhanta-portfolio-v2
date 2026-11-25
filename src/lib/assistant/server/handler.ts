@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSiteUrl } from "@/lib/env";
-import { readConfig } from "@/lib/assistant/server/config";
+import { isProductionMode, readConfig } from "@/lib/assistant/server/config";
 import type { ConfigResult } from "@/lib/assistant/server/config";
 import {
   getDeterministicAnswer,
@@ -9,6 +9,8 @@ import {
 } from "@/lib/assistant/server/deterministic";
 import { getKnowledge } from "@/lib/assistant/server/knowledge";
 import type { Knowledge } from "@/lib/assistant/server/knowledge";
+import { LocalUsageGate } from "@/lib/assistant/server/gate";
+import type { GateDenied } from "@/lib/assistant/server/gate";
 import { buildChatMessages } from "@/lib/assistant/server/prompt";
 import type { ChatProvider } from "@/lib/assistant/server/provider";
 import {
@@ -17,6 +19,12 @@ import {
   InFlightGuard,
   getVisitorKey,
 } from "@/lib/assistant/server/rate-limit";
+import {
+  NO_CLOUDFLARE,
+  edgeAllows,
+  resolveRuntime,
+} from "@/lib/assistant/server/runtime";
+import type { RuntimeContext } from "@/lib/assistant/server/runtime";
 import {
   getSourceCatalog,
   resolveSource,
@@ -40,16 +48,23 @@ import type {
 } from "@/lib/assistant/shared/protocol";
 
 export type HandlerDeps = {
-  /** Read on every request so a missing key is handled, not cached. */
-  getConfig: () => ConfigResult;
+  /**
+   * Read on every request so a missing key is handled, not cached. The env
+   * argument is the Worker env (vars and secrets) when running on Cloudflare.
+   */
+  getConfig: (env?: Record<string, string>) => ConfigResult;
   getProvider: (
     config: Extract<ConfigResult, { status: "ready" }>["config"],
   ) => ChatProvider;
   getKnowledge: () => Knowledge;
   getCatalog: () => SourceCatalog;
-  /** Every request, including the deterministic starters. */
+  /** Finds Cloudflare bindings: the shared gate and the edge pre-filter. */
+  getRuntime: () => Promise<RuntimeContext>;
+  /** Fails closed. Production requires the shared gate for the model path. */
+  isProduction: () => boolean;
+  /** Per-process limit for every request, including the starters. */
   generalLimiter: BoundedRateLimiter;
-  /** Model requests only. */
+  /** Local gate parts, used only when no shared gate is bound (development). */
   modelLimiter: BoundedRateLimiter;
   dailyBudget: DailyBudget;
   inFlight: InFlightGuard;
@@ -101,18 +116,25 @@ const STREAM_HEADERS = {
 function isAllowedOrigin(request: Request, extra: string[]): boolean {
   const origin = request.headers.get("origin");
   if (origin) {
+    let originUrl: URL;
     let own: string;
     try {
+      originUrl = new URL(origin);
       own = new URL(request.url).origin;
     } catch {
       return false;
     }
-    return origin === own || extra.includes(origin);
+    if (origin === own || extra.includes(origin)) return true;
+    // Behind an adapter, request.url may not carry the public hostname (the
+    // OpenNext Worker reports http://localhost:PORT). A browser sends Origin
+    // for the page that made the call, and a page on another site cannot
+    // change the Host header, so this still rejects cross-site calls.
+    const host = request.headers.get("host")?.toLowerCase();
+    return host !== undefined && originUrl.host.toLowerCase() === host;
   }
   // No Origin header: accept only browsers that say the call is same-origin.
   return request.headers.get("sec-fetch-site") === "same-origin";
 }
-
 export async function handleAssistantRequest(
   request: Request,
   deps: HandlerDeps,
@@ -126,7 +148,19 @@ export async function handleAssistantRequest(
     return errorResponse("bad_request");
   }
 
-  const visitor = await getVisitorKey(request.headers);
+  // A failure to look up bindings means "no shared gate", which fails closed.
+  const runtime = await deps.getRuntime().catch(() => NO_CLOUDFLARE);
+  const production = deps.isProduction();
+
+  // Only the Cloudflare edge sets cf-connecting-ip honestly. Anywhere else
+  // in production the header is just client input, so it is ignored.
+  const visitor = await getVisitorKey(request.headers, {
+    trustCloudflareHeader: runtime.cloudflare || !production,
+  });
+
+  if (!(await edgeAllows(runtime.edgeLimit, visitor))) {
+    return errorResponse("rate_limited", { retryAfterSeconds: 10 });
+  }
 
   const general = deps.generalLimiter.check(visitor);
   if (!general.allowed) {
@@ -169,59 +203,106 @@ export async function handleAssistantRequest(
     }
   }
 
-  const configResult = deps.getConfig();
+  const configResult = deps.getConfig(runtime.env);
   if (configResult.status !== "ready") {
     release();
     return errorResponse("unavailable");
   }
   const { config } = configResult;
 
-  const model = deps.modelLimiter.check(visitor);
-  if (!model.allowed) {
-    release();
-    return errorResponse("rate_limited", {
-      retryAfterSeconds: model.retryAfterSeconds,
+  // Shared gate when bound. Otherwise the per-process gate, which is only
+  // acceptable outside production, because every isolate has its own counters.
+  const gate =
+    runtime.gate ??
+    new LocalUsageGate({
+      modelLimiter: deps.modelLimiter,
+      dailyBudget: deps.dailyBudget,
     });
-  }
-  if (!deps.dailyBudget.tryConsume()) {
+  if (production && gate.kind !== "shared") {
     release();
-    return errorResponse("quota");
+    return errorResponse("unavailable");
   }
 
-  const abort = new AbortController();
-  request.signal.addEventListener("abort", () => abort.abort(), { once: true });
+  const grant = await gate.acquire(visitor);
+  if (!grant.ok) {
+    release();
+    return gateDeniedResponse(grant);
+  }
+  const releaseAll = async () => {
+    try {
+      await grant.release();
+    } finally {
+      release();
+    }
+  };
 
-  const knowledge = deps.getKnowledge();
-  const messages = buildChatMessages({
-    knowledge,
-    history,
-    question,
-    nonce: deps.newNonce(),
-  });
+  try {
+    const abort = new AbortController();
+    request.signal.addEventListener("abort", () => abort.abort(), {
+      once: true,
+    });
 
-  const events = modelEvents({
-    provider: deps.getProvider(config),
-    messages,
-    knowledge,
-    catalog,
-    maxOutputTokens: config.maxOutputTokens,
-    maxOutputChars: config.maxOutputChars,
-    abort,
-  });
+    const knowledge = deps.getKnowledge();
+    const messages = buildChatMessages({
+      knowledge,
+      history,
+      question,
+      nonce: deps.newNonce(),
+    });
 
-  return new Response(
-    eventsToStream(events, {
-      onCancel: () => abort.abort(),
-      onFinish: release,
-    }),
-    { status: 200, headers: STREAM_HEADERS },
-  );
+    const events = modelEvents({
+      provider: deps.getProvider(config),
+      messages,
+      knowledge,
+      catalog,
+      maxOutputTokens: config.maxOutputTokens,
+      maxOutputChars: config.maxOutputChars,
+      abort,
+    });
+
+    return new Response(
+      eventsToStream(events, {
+        onCancel: () => abort.abort(),
+        onFinish: releaseAll,
+      }),
+      { status: 200, headers: STREAM_HEADERS },
+    );
+  } catch {
+    await releaseAll();
+    return errorResponse("upstream");
+  }
 }
 
-/** Production wiring. Limits are per process, see docs/phase-6a-assistant.md. */
+function gateDeniedResponse(denied: GateDenied): Response {
+  switch (denied.reason) {
+    case "rate_limited":
+      return errorResponse("rate_limited", {
+        retryAfterSeconds: denied.retryAfterSeconds,
+      });
+    case "quota":
+      return errorResponse("quota");
+    case "busy":
+      return errorResponse("busy");
+    default:
+      return errorResponse("unavailable");
+  }
+}
+/**
+ * Production wiring. The per-process limiters are a first layer. The model
+ * path in production also needs the shared Durable Object gate, see
+ * docs/phase-6b-production.md.
+ */
 export function createDefaultDeps(): HandlerDeps {
   return {
-    getConfig: () => readConfig(),
+    getConfig: (env) =>
+      readConfig({
+        ...process.env,
+        ...env,
+        // A literal, so the build inlines it. Never read from the Worker env.
+        NODE_ENV: process.env.NODE_ENV,
+      }),
+    getRuntime: resolveRuntime,
+    isProduction: () => isProductionMode(process.env.NODE_ENV),
     getProvider: (config) => createWorkersAiProvider(config),
     getKnowledge,
     getCatalog: getSourceCatalog,

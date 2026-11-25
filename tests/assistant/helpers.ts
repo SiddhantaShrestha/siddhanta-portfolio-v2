@@ -1,6 +1,12 @@
+import { DatabaseSync } from "node:sqlite";
+import { AssistantGate } from "../../cloudflare/assistant-gate";
+import type { GateSql, SqlValue } from "../../cloudflare/gate-core";
+import { createDurableGate } from "@/lib/assistant/server/gate-durable";
+import type { DurableObjectNamespaceLike } from "@/lib/assistant/server/gate-durable";
 import { createDefaultDeps } from "@/lib/assistant/server/handler";
 import type { HandlerDeps } from "@/lib/assistant/server/handler";
 import { ProviderError } from "@/lib/assistant/server/provider";
+import type { RuntimeContext } from "@/lib/assistant/server/runtime";
 import type {
   ChatProvider,
   ProviderRequest,
@@ -132,4 +138,75 @@ export function sseResponse(chunks: string[], init: ResponseInit = {}) {
 
 export function sseData(content: string): string {
   return `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+}
+
+/** Wraps a real SQLite engine in the shape of Durable Object SQL storage. */
+export function sqliteGateSql(db = new DatabaseSync(":memory:")): GateSql {
+  return {
+    exec(query: string, ...bindings: SqlValue[]) {
+      const statement = db.prepare(query);
+      const rows = /^\s*select/i.test(query)
+        ? (statement.all(...bindings) as Record<string, unknown>[])
+        : (statement.run(...bindings), []);
+      return { toArray: () => rows };
+    },
+  };
+}
+
+export type FakeGateNamespace = DurableObjectNamespaceLike & {
+  /** Every request the namespace received, in order. */
+  requests: { path: string; body: unknown }[];
+  /** Make the next calls fail like a broken or slow Durable Object. */
+  failWith: ((url: string) => Promise<Response>) | null;
+};
+
+/**
+ * One real AssistantGate (the Durable Object class) on in-memory SQLite.
+ * Sharing it between several makeDeps() calls models several Worker isolates
+ * that each have their own in-memory counters but one shared Durable Object.
+ */
+export function fakeGateNamespace(): FakeGateNamespace {
+  const gate = new AssistantGate({ storage: { sql: sqliteGateSql() } });
+  const namespace: FakeGateNamespace = {
+    requests: [],
+    failWith: null,
+    idFromName: (name) => name,
+    get: () => ({
+      async fetch(input, init) {
+        const raw = String(init?.body ?? "null");
+        let body: unknown = raw;
+        try {
+          body = JSON.parse(raw);
+        } catch {
+          // Keep the raw text for requests that are not JSON.
+        }
+        namespace.requests.push({ path: new URL(input).pathname, body });
+        if (namespace.failWith) return namespace.failWith(input);
+        return gate.fetch(new Request(input, init));
+      },
+    }),
+  };
+  return namespace;
+}
+
+export const GATE_LIMITS = {
+  perVisitorLimit: 6,
+  windowMs: 60_000,
+  dailyLimit: 100,
+  lockMs: 30_000,
+};
+
+/** Deps shaped like Cloudflare production, with a shared gate. */
+export function cloudflareRuntime(
+  namespace: DurableObjectNamespaceLike,
+  limits: Partial<typeof GATE_LIMITS> = {},
+  extra: Partial<RuntimeContext> = {},
+): RuntimeContext {
+  return {
+    cloudflare: true,
+    gate: createDurableGate(namespace, { ...GATE_LIMITS, ...limits }),
+    edgeLimit: null,
+    env: undefined,
+    ...extra,
+  };
 }

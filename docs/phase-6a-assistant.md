@@ -21,6 +21,10 @@ No `NEXT_PUBLIC_` variables are used. Keep real values in `.env.local` or host s
 
 ## Deployment gates
 
+> Phase 6B added the shared Durable Object gate, trusted-IP handling and the
+> deployment checks. Gates 2 to 4 below are now implemented in code but still
+> need the Cloudflare setup in `docs/phase-6b-production.md`.
+
 In a production build the model path is **off** unless `ASSISTANT_PRODUCTION_GATES_CONFIRMED=true`. Starter answers still work. Set the flag only after every item is done and checked:
 
 1. Rotate and remove the committed secrets found earlier. This is an unresolved security task and a deployment blocker.

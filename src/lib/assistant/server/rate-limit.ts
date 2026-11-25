@@ -157,22 +157,93 @@ export class DailyBudget {
   }
 }
 
-const IP_LIKE = /^[0-9a-f:.]{3,45}$/i;
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+function parseIpv4(text: string): number[] | null {
+  const match = IPV4.exec(text);
+  if (!match) return null;
+  const parts = match.slice(1).map(Number);
+  return parts.every((n) => n <= 255) ? parts : null;
+}
 
 /**
- * Stable anonymous key for a visitor. Prefers the Cloudflare header, which
- * Cloudflare sets itself. Other forwarded headers can be spoofed when the app
- * is reachable without a trusted proxy, which is a documented limitation.
- * The raw address is hashed and never stored or logged.
+ * Canonical network key for an address, or null when it is not an address.
+ * IPv4 is used as is. IPv6 is cut to its /64, because one household or phone
+ * gets a whole /64 and can rotate through it freely.
  */
-export async function getVisitorKey(headers: Headers): Promise<string> {
-  const candidate =
-    headers.get("cf-connecting-ip") ??
-    headers.get("x-real-ip") ??
-    headers.get("x-forwarded-for")?.split(",")[0] ??
-    "";
-  const ip = candidate.trim();
-  const source = IP_LIKE.test(ip) ? ip : "unknown";
+export function normalizeIp(input: string | null | undefined): string | null {
+  const text = (input ?? "").trim().toLowerCase();
+  if (text.length < 2 || text.length > 45) return null;
+
+  const v4 = parseIpv4(text);
+  if (v4) return v4.join(".");
+  if (!/^[0-9a-f:.]+$/.test(text) || !text.includes(":")) return null;
+
+  let groupsText = text;
+  // A dotted IPv4 tail ("::ffff:1.2.3.4") counts as two groups.
+  const lastColon = text.lastIndexOf(":");
+  const tail = text.slice(lastColon + 1);
+  if (tail.includes(".")) {
+    const embedded = parseIpv4(tail);
+    if (!embedded) return null;
+    const hi = ((embedded[0] ?? 0) << 8) | (embedded[1] ?? 0);
+    const lo = ((embedded[2] ?? 0) << 8) | (embedded[3] ?? 0);
+    groupsText = `${text.slice(0, lastColon + 1)}${hi.toString(16)}:${lo.toString(16)}`;
+  } else if (text.includes(".")) {
+    return null;
+  }
+
+  const halves = groupsText.split("::");
+  if (halves.length > 2) return null;
+  const split = (part: string) => (part === "" ? [] : part.split(":"));
+  const head = split(halves[0] ?? "");
+  const rest = halves.length === 2 ? split(halves[1] ?? "") : [];
+  const missing = 8 - head.length - rest.length;
+  if (halves.length === 1 ? missing !== 0 : missing < 1) return null;
+
+  const groups = [
+    ...head,
+    ...Array<string>(halves.length === 2 ? missing : 0).fill("0"),
+    ...rest,
+  ];
+  if (groups.length !== 8) return null;
+  if (!groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return null;
+
+  // IPv4-mapped (::ffff:a.b.c.d) is really an IPv4 client.
+  const mapped = groups.slice(0, 5).every((g) => parseInt(g, 16) === 0);
+  if (mapped && groups[5] === "ffff") {
+    const hi = parseInt(groups[6] ?? "0", 16);
+    const lo = parseInt(groups[7] ?? "0", 16);
+    return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
+  }
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.padStart(4, "0"))
+    .join(":")}::/64`;
+}
+
+export type VisitorKeyOptions = {
+  /**
+   * Trust the cf-connecting-ip header. Cloudflare's edge sets it and replaces
+   * any value a client sends, but only when traffic really passes through
+   * Cloudflare. Everywhere else it is just a client header, so callers must
+   * pass false and every visitor shares one "unknown" bucket.
+   * x-forwarded-for and x-real-ip are never used: a client can send either.
+   */
+  trustCloudflareHeader?: boolean;
+};
+
+/**
+ * Stable anonymous key for a visitor. The raw address is hashed and never
+ * stored or logged.
+ */
+export async function getVisitorKey(
+  headers: Headers,
+  options: VisitorKeyOptions = {},
+): Promise<string> {
+  const trust = options.trustCloudflareHeader ?? true;
+  const source =
+    (trust && normalizeIp(headers.get("cf-connecting-ip"))) || "unknown";
 
   const digest = await crypto.subtle.digest(
     "SHA-256",

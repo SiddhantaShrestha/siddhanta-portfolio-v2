@@ -47,13 +47,21 @@ type EventSource = AsyncGenerator<AssistantEvent, void, void>;
 /** Wraps an event generator as an NDJSON byte stream with clean cancellation. */
 export function eventsToStream(
   events: EventSource,
-  hooks: { onCancel?: () => void; onFinish?: () => void } = {},
+  hooks: {
+    onCancel?: () => void;
+    /** May be async, for example to release a shared lock. Errors are ignored. */
+    onFinish?: () => void | Promise<void>;
+  } = {},
 ): ReadableStream<Uint8Array> {
   let finished = false;
-  const finish = () => {
+  const finish = async () => {
     if (finished) return;
     finished = true;
-    hooks.onFinish?.();
+    try {
+      await hooks.onFinish?.();
+    } catch {
+      // A failed release must never break the response.
+    }
   };
 
   return new ReadableStream<Uint8Array>({
@@ -61,14 +69,15 @@ export function eventsToStream(
       try {
         const next = await events.next();
         if (next.done) {
+          // Release first, so a shared lock is freed before the stream ends.
+          await finish();
           controller.close();
-          finish();
           return;
         }
         controller.enqueue(encodeEvent(next.value));
       } catch {
+        await finish();
         controller.error(new Error("stream failed"));
-        finish();
       }
     },
     async cancel() {
@@ -76,7 +85,7 @@ export function eventsToStream(
       try {
         await events.return(undefined);
       } finally {
-        finish();
+        await finish();
       }
     },
   });
@@ -102,6 +111,11 @@ export type ModelRunArgs = {
   maxOutputChars: number;
   /** Aborted when the visitor leaves or the stream is cancelled. */
   abort: AbortController;
+  /**
+   * Called when the guard stops an answer. For offline evaluation only. The
+   * route never sets it, so nothing about a blocked answer is logged.
+   */
+  onBlocked?: (reason: string, sentence: string) => void;
 };
 
 /**
@@ -119,7 +133,9 @@ export async function* modelEvents(args: ModelRunArgs): EventSource {
   let blocked = false;
 
   const handle = (sentence: string): AssistantEvent | null => {
-    if (checkSentence(sentence, knowledge)) {
+    const violation = checkSentence(sentence, knowledge);
+    if (violation) {
+      args.onBlocked?.(violation, sentence);
       stopped = true;
       blocked = true;
       return { t: "notice", v: BLOCKED_NOTICE };
