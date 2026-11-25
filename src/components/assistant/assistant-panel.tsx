@@ -7,6 +7,7 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
 import { ASSISTANT_LIMITS } from "@/lib/assistant/shared/protocol";
 import { starterQuestions } from "@/lib/assistant/shared/starter-questions";
+import { MessageText } from "./message-text";
 import { useAssistantChat } from "./use-assistant-chat";
 import type { ChatMessage } from "./use-assistant-chat";
 
@@ -39,10 +40,27 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
 
   // Keep the newest text in view by scrolling the panel list only. Instant,
   // so reduced motion is respected, and the page behind never moves.
+  // While an answer streams, follow it only if the visitor has not scrolled
+  // up to read earlier messages. A new message always jumps to the bottom.
+  const followRef = useRef(true);
+  const messageCount = messages.length;
+
+  useEffect(() => {
+    followRef.current = true;
+  }, [messageCount]);
+
   useEffect(() => {
     const el = scrollRef.current;
-    if (el && messages.length > 0) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+    if (el && messageCount > 0 && followRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages, messageCount]);
+
+  function onListScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    followRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
 
   const hasConversation = messages.length > 0;
 
@@ -130,7 +148,11 @@ export function AssistantPanel({ panelId, onClose }: AssistantPanelProps) {
         </div>
       </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <div
+        ref={scrollRef}
+        onScroll={onListScroll}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3"
+      >
         {hasConversation ? (
           <ol className="space-y-4" aria-label="Conversation">
             {messages.map((message) => (
@@ -296,16 +318,18 @@ function MessageItem({ message }: { message: ChatMessage }) {
       <span className="sr-only">{isUser ? "You" : "Assistant"}</span>
       <div
         className={cn(
-          "max-w-[92%] px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap",
+          "max-w-[92%] px-3 py-2.5 text-[15px] leading-relaxed",
           isUser
-            ? "border border-accent/30 bg-accent/10"
+            ? "border border-accent/30 bg-accent/10 whitespace-pre-wrap"
             : "border border-line bg-surface",
         )}
       >
         {waiting ? (
           <span className="text-muted">Thinking…</span>
-        ) : (
+        ) : isUser ? (
           message.content
+        ) : (
+          <MessageText text={message.content} />
         )}
         {message.notice ? (
           <p className="mt-2 text-xs text-muted italic">{message.notice}</p>
