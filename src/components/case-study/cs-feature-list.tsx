@@ -12,7 +12,7 @@ export function CsFeatureList({ features }: CsFeatureListProps) {
         >
           <span
             aria-hidden
-            className="pt-0.5 font-mono text-[0.68rem] tracking-[0.14em] text-muted"
+            className="pt-0.5 font-mono text-[0.75rem] tracking-[0.14em] text-muted"
           >
             {String(index + 1).padStart(2, "0")}
           </span>

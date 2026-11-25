@@ -31,7 +31,7 @@ export function CsPager({ slug }: CsPagerProps) {
           href={previous.caseStudyHref}
           className="group flex flex-col gap-2 py-10 transition-colors hover:text-accent sm:pr-8"
         >
-          <span className="flex items-center gap-2 font-mono text-[0.68rem] tracking-[0.2em] text-muted uppercase">
+          <span className="flex items-center gap-2 font-mono text-[0.75rem] tracking-[0.2em] text-muted uppercase">
             <ArrowLeft size={14} aria-hidden />
             Previous case study
           </span>
@@ -47,7 +47,7 @@ export function CsPager({ slug }: CsPagerProps) {
           href={next.caseStudyHref}
           className="group flex flex-col gap-2 border-t border-line py-10 transition-colors hover:text-accent sm:items-end sm:border-t-0 sm:border-l sm:pl-8 sm:text-right"
         >
-          <span className="flex items-center gap-2 font-mono text-[0.68rem] tracking-[0.2em] text-muted uppercase">
+          <span className="flex items-center gap-2 font-mono text-[0.75rem] tracking-[0.2em] text-muted uppercase">
             Next case study
             <ArrowRight size={14} aria-hidden />
           </span>

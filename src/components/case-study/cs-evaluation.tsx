@@ -23,16 +23,35 @@ type BarProps = {
 /** Decorative bar. The numbers are always printed as text next to it. */
 function Bar({ hits, total, tone }: BarProps) {
   return (
-    <div aria-hidden className="h-1.5 w-full bg-line">
+    <div aria-hidden className="h-2.5 w-full bg-line-strong">
       <div
         className={cn(
           "h-full",
           tone === "accent" && "bg-accent",
           tone === "violet" && "bg-violet",
-          tone === "muted" && "bg-muted/60",
+          tone === "muted" && "bg-foreground/50",
         )}
         style={{ width: `${(hits / total) * 100}%` }}
       />
+    </div>
+  );
+}
+
+/** One square per question: filled squares are hits. Decorative only. */
+function QuestionStrip({ hits, total }: { hits: number; total: number }) {
+  return (
+    <div aria-hidden className="mt-6 flex max-w-md flex-wrap gap-1">
+      {Array.from({ length: total }, (_, i) => (
+        <span
+          key={i}
+          className={cn(
+            "size-3 border",
+            i < hits
+              ? "border-accent bg-accent"
+              : "border-line-strong bg-transparent",
+          )}
+        />
+      ))}
     </div>
   );
 }
@@ -48,19 +67,19 @@ function PassageSeries({
 }) {
   return (
     <div>
-      <h3 className="font-mono text-[0.68rem] tracking-[0.16em] text-foreground uppercase">
+      <h3 className="font-mono text-[0.8125rem] tracking-[0.14em] text-foreground uppercase">
         {series.label}
       </h3>
       <ul className="mt-4 space-y-4">
         {series.points.map((point) => (
           <li key={point.passageChars}>
-            <div className="flex items-baseline justify-between gap-4 text-sm">
+            <div className="flex items-baseline justify-between gap-4 text-[0.9375rem]">
               <span className="text-muted">
                 {point.passageChars}-character passages
               </span>
-              <span className="text-foreground tabular-nums">
+              <span className="text-base font-medium text-foreground tabular-nums">
                 {point.hit5}/{total}
-                <span className="text-muted">
+                <span className="font-normal text-muted">
                   {" "}
                   · {percent(point.hit5, total)}
                 </span>
@@ -89,7 +108,7 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
     <div className="space-y-14">
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
         <div>
-          <p className="font-mono text-[0.68rem] tracking-[0.2em] text-violet uppercase">
+          <p className="font-mono text-[0.75rem] tracking-[0.2em] text-violet uppercase">
             {evaluation.title}
           </p>
           <p className="mt-5 text-foreground">
@@ -104,11 +123,14 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
               {evaluation.metricLabel}: {headline.hits} of {total} questions
             </span>
           </p>
-          <p className="mt-4 font-mono text-[0.72rem] tracking-[0.16em] text-accent uppercase">
+          <p className="mt-4 font-mono text-[0.8125rem] tracking-[0.14em] text-accent uppercase">
             {evaluation.metricLabel} · {percent(headline.hits, total)} ·{" "}
             {headline.label}
           </p>
-          <p className="mt-4 max-w-md text-[0.9375rem] leading-7 text-muted">
+          {total <= 60 ? (
+            <QuestionStrip hits={headline.hits} total={total} />
+          ) : null}
+          <p className="mt-6 max-w-md text-[1.0625rem] leading-8 text-foreground/90">
             {headline.context}
           </p>
         </div>
@@ -117,7 +139,7 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
           <h3 className="text-lg font-medium text-foreground">
             What {evaluation.metricLabel} measures
           </h3>
-          <p className="mt-3 max-w-xl text-[0.9375rem] leading-7 text-muted">
+          <p className="mt-3 max-w-xl text-base leading-7 text-muted">
             {evaluation.definition}
           </p>
           <dl className="mt-6 grid grid-cols-2">
@@ -126,14 +148,16 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
                 key={item.label}
                 className="border-t border-line py-3 pr-4 even:pl-4"
               >
-                <dt className="font-mono text-[0.62rem] tracking-[0.16em] text-muted uppercase">
+                <dt className="font-mono text-[0.75rem] tracking-[0.16em] text-muted uppercase">
                   {item.label}
                 </dt>
-                <dd className="mt-1 text-sm text-foreground">{item.value}</dd>
+                <dd className="mt-1 text-[0.9375rem] text-foreground">
+                  {item.value}
+                </dd>
               </div>
             ))}
           </dl>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-muted">
+          <p className="mt-4 max-w-xl text-[0.9375rem] leading-6 text-muted">
             {evaluation.sampleNote}
           </p>
         </div>
@@ -147,31 +171,36 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
           {evaluation.methods.map((method) => (
             <li
               key={method.label}
-              className="grid gap-4 border-t border-line py-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,0.9fr)] lg:items-center lg:gap-10"
+              className={cn(
+                "grid gap-4 border-t border-line py-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,0.9fr)] lg:items-center lg:gap-10",
+                method.shipped
+                  ? "lg:-mx-4 lg:border-t-accent/40 lg:bg-accent/[0.05] lg:px-4"
+                  : null,
+              )}
             >
               <div>
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.9375rem] text-foreground">
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[1.0625rem] font-medium text-foreground">
                   {method.label}
                   {method.shipped ? (
-                    <span className="border border-accent/50 px-1.5 py-px font-mono text-[0.62rem] tracking-[0.14em] text-accent uppercase">
+                    <span className="border border-accent/50 px-1.5 py-px font-mono text-[0.75rem] tracking-[0.14em] text-accent uppercase">
                       In the app
                     </span>
                   ) : null}
                 </p>
                 {method.detail ? (
-                  <p className="mt-1 text-sm leading-6 text-muted">
+                  <p className="mt-1 text-[0.9375rem] leading-6 text-muted">
                     {method.detail}
                   </p>
                 ) : null}
               </div>
               <div>
-                <div className="flex items-baseline justify-between gap-4 text-sm">
-                  <span className="font-mono text-[0.65rem] tracking-[0.16em] text-muted uppercase">
+                <div className="flex items-baseline justify-between gap-4 text-[0.9375rem]">
+                  <span className="font-mono text-[0.75rem] tracking-[0.16em] text-muted uppercase">
                     {evaluation.metricLabel}
                   </span>
-                  <span className="text-foreground tabular-nums">
+                  <span className="text-lg font-medium text-foreground tabular-nums">
                     {method.hit5}/{total}
-                    <span className="text-muted">
+                    <span className="text-[0.9375rem] font-normal text-muted">
                       {" "}
                       · {percent(method.hit5, total)}
                     </span>
@@ -185,7 +214,7 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
                   />
                 </div>
               </div>
-              <p className="text-sm leading-6 text-muted tabular-nums">
+              <p className="text-[0.9375rem] leading-6 text-muted tabular-nums">
                 Hit@1 {method.hit1}/{total} · {percent(method.hit1, total)}
                 <br />
                 MRR {method.mrr.toFixed(3)}
@@ -214,11 +243,11 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
       ) : null}
 
       <div className="grid gap-8 border-t border-line pt-8 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-14">
-        <h3 className="font-mono text-[0.68rem] tracking-[0.2em] text-violet uppercase">
+        <h3 className="font-mono text-[0.75rem] tracking-[0.2em] text-violet uppercase">
           How to read this
         </h3>
         <div>
-          <ul className="space-y-3 text-[0.9375rem] leading-7 text-muted">
+          <ul className="space-y-3 text-base leading-7 text-muted">
             {evaluation.caveats.map((caveat) => (
               <li key={caveat} className="max-w-2xl border-l border-line pl-4">
                 {caveat}
@@ -234,6 +263,7 @@ export function CsEvaluation({ evaluation }: CsEvaluationProps) {
             <TextLink
               href={evaluation.source.href}
               external={evaluation.source.external}
+              size="lg"
             >
               {evaluation.source.label}
               <ArrowUpRight size={14} aria-hidden />

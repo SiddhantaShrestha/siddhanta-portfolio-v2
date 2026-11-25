@@ -6,6 +6,7 @@ type TextLinkProps = {
   children: React.ReactNode;
   external?: boolean;
   className?: string;
+  size?: "md" | "lg";
 };
 
 export function TextLink({
@@ -13,9 +14,11 @@ export function TextLink({
   children,
   external = false,
   className,
+  size = "md",
 }: TextLinkProps) {
   const classes = cn(
-    "inline-flex items-center gap-1.5 text-sm text-foreground underline decoration-line underline-offset-4 transition-colors hover:decoration-accent",
+    size === "lg" ? "text-base" : "text-sm",
+    "inline-flex items-center gap-1.5 text-foreground underline decoration-line underline-offset-4 transition-colors hover:decoration-accent",
     className,
   );
 

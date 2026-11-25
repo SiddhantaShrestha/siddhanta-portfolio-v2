@@ -17,7 +17,7 @@ export function CsContribution({ body, contributions }: CsContributionProps) {
           {contributions.map((item) => (
             <li
               key={item}
-              className="flex gap-3 border-t border-line py-3 text-[0.9375rem] leading-snug text-foreground"
+              className="flex gap-3 border-t border-line py-3 text-base leading-snug text-foreground"
             >
               <span
                 aria-hidden
