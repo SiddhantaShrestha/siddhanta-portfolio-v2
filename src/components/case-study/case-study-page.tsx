@@ -11,19 +11,55 @@ import { CsPager } from "@/components/case-study/cs-pager";
 import { CsProse } from "@/components/case-study/cs-prose";
 import { CsResults } from "@/components/case-study/cs-results";
 import { CsSection } from "@/components/case-study/cs-section";
-import type { Project } from "@/content/projects";
+import {
+  DEFAULT_CASE_STUDY_SECTION_ORDER,
+  type CaseStudySectionId,
+  type Project,
+} from "@/content/projects";
 
 type CaseStudyPageProps = {
   project: Project;
 };
 
 type SectionSpec = {
-  id: string;
+  id: CaseStudySectionId;
   label: string;
   title: string;
   wide?: boolean;
   content: React.ReactNode;
 };
+
+/**
+ * Orders built sections. Listed ids come first; any remaining content appends
+ * in the default CiteDocs order. Unknown ids in `preferred` are ignored.
+ */
+function orderSections(
+  sections: SectionSpec[],
+  preferred?: CaseStudySectionId[],
+): SectionSpec[] {
+  if (!preferred || preferred.length === 0) {
+    return sections;
+  }
+
+  const byId = new Map(sections.map((section) => [section.id, section]));
+  const ordered: SectionSpec[] = [];
+
+  for (const id of preferred) {
+    const section = byId.get(id);
+    if (!section) continue;
+    ordered.push(section);
+    byId.delete(id);
+  }
+
+  for (const id of DEFAULT_CASE_STUDY_SECTION_ORDER) {
+    const section = byId.get(id);
+    if (!section) continue;
+    ordered.push(section);
+    byId.delete(id);
+  }
+
+  return ordered;
+}
 
 /**
  * Builds the list of sections that have verified content. A section with no
@@ -73,8 +109,8 @@ function buildSections(project: Project): SectionSpec[] {
   if (study.architecture && study.architecture.steps.length > 0) {
     sections.push({
       id: "architecture",
-      label: "Architecture",
-      title: "How it is built",
+      label: study.architecture.label ?? "Architecture",
+      title: study.architecture.heading ?? "How it is built",
       wide: true,
       content: (
         <CsArchitecture
@@ -107,10 +143,15 @@ function buildSections(project: Project): SectionSpec[] {
   if (study.figures && study.figures.length > 0) {
     sections.push({
       id: "screenshots",
-      label: "Screenshots",
-      title: "The product in use",
+      label: study.galleryLabel ?? "Screenshots",
+      title: study.galleryTitle ?? "The product in use",
       wide: true,
-      content: <CsGallery figures={study.figures} />,
+      content: (
+        <CsGallery
+          figures={study.figures}
+          layout={study.galleryLayout ?? "grid"}
+        />
+      ),
     });
   }
 
@@ -133,10 +174,10 @@ function buildSections(project: Project): SectionSpec[] {
     });
   }
 
-  return sections;
+  return orderSections(sections, study.sectionOrder);
 }
 
-/** Phase 4B case study layout. Server rendered, no client components. */
+/** Case study layout. Server rendered; expandable figures use a small client island. */
 export function CaseStudyPage({ project }: CaseStudyPageProps) {
   const sections = buildSections(project);
 

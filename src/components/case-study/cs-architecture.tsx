@@ -10,9 +10,9 @@ type CsArchitectureProps = {
 /**
  * Architecture flow built from verified steps only.
  *
- * - Below xl: a vertical rail. From md up each stage uses two columns so the
+ * - Below 2xl: a vertical rail. From md up each stage uses two columns so the
  *   title and the explanation stay at a comfortable line length.
- * - From xl: a horizontal flow with a connecting line and arrow between
+ * - From 2xl: a horizontal flow with a connecting line and arrow between
  *   stage nodes.
  * - A step with a `badge` is a boundary stage. It gets a violet node, a
  *   tinted panel and a badge so it stands apart from the other stages.
@@ -34,7 +34,7 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
           className={cn(
             "mt-12 grid",
             horizontal
-              ? "xl:[grid-template-columns:repeat(var(--stage-count),minmax(0,1fr))] xl:gap-x-10"
+              ? "2xl:[grid-template-columns:repeat(var(--stage-count),minmax(0,1fr))] 2xl:gap-x-10"
               : null,
           )}
           style={columns}
@@ -49,7 +49,7 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
                 key={step.title}
                 className={cn(
                   "relative pb-10 pl-9 last:pb-0",
-                  horizontal ? "xl:pb-0 xl:pl-0 xl:pt-12" : null,
+                  horizontal ? "2xl:pb-0 2xl:pl-0 2xl:pt-12" : null,
                 )}
               >
                 <span
@@ -59,7 +59,7 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
                     isBoundary
                       ? "top-[1.4rem] border-violet bg-violet sm:top-[1.65rem]"
                       : "top-[0.45rem] border-accent bg-background",
-                    horizontal ? "xl:top-0" : null,
+                    horizontal ? "2xl:top-0" : null,
                   )}
                 />
                 {isLast ? null : (
@@ -71,7 +71,7 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
                         ? "top-[2.2rem] sm:top-[2.45rem]"
                         : "top-[1.25rem]",
                       horizontal
-                        ? "xl:top-[0.34rem] xl:right-[-2.5rem] xl:bottom-auto xl:left-5 xl:h-px xl:w-auto xl:after:absolute xl:after:top-1/2 xl:after:right-0 xl:after:size-[7px] xl:after:-translate-y-1/2 xl:after:rotate-45 xl:after:border-t xl:after:border-r xl:after:border-foreground/40"
+                        ? "2xl:top-[0.34rem] 2xl:right-[-2.5rem] 2xl:bottom-auto 2xl:left-5 2xl:h-px 2xl:w-auto 2xl:after:absolute 2xl:after:top-1/2 2xl:after:right-0 2xl:after:size-[7px] 2xl:after:-translate-y-1/2 2xl:after:rotate-45 2xl:after:border-t 2xl:after:border-r 2xl:after:border-foreground/40"
                         : null,
                     )}
                   />
@@ -79,22 +79,24 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
 
                 <div
                   className={cn(
-                    horizontal ? "xl:-mx-3 xl:block xl:border xl:p-3" : null,
+                    horizontal
+                      ? "2xl:-mx-3 2xl:block 2xl:border 2xl:p-3"
+                      : null,
                     isBoundary
                       ? "border border-violet/35 bg-violet/[0.07] p-4 sm:p-5"
                       : horizontal
-                        ? "xl:border-transparent"
+                        ? "2xl:border-transparent"
                         : null,
                   )}
                 >
                   <div
                     className={cn(
                       "md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:gap-10",
-                      horizontal ? "xl:block" : null,
+                      horizontal ? "2xl:block" : null,
                     )}
                   >
                     <div
-                      className={horizontal ? "xl:min-h-[7.5rem]" : undefined}
+                      className={horizontal ? "2xl:min-h-[7.5rem]" : undefined}
                     >
                       <p
                         className={cn(
@@ -104,7 +106,7 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
                       >
                         Stage {String(index + 1).padStart(2, "0")}
                       </p>
-                      <h3 className="mt-2 text-xl leading-snug font-medium text-balance text-foreground xl:text-[1.1875rem]">
+                      <h3 className="mt-2 text-xl leading-snug font-medium text-balance text-foreground 2xl:text-[1.1875rem]">
                         {step.title}
                       </h3>
                       {step.badge ? (
@@ -116,7 +118,7 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
                     <div
                       className={cn(
                         "mt-3 md:mt-0",
-                        horizontal ? "xl:mt-4" : null,
+                        horizontal ? "2xl:mt-4" : null,
                       )}
                     >
                       <p className="max-w-xl text-[0.9375rem] leading-[1.7] text-muted">
@@ -124,7 +126,7 @@ export function CsArchitecture({ summary, steps }: CsArchitectureProps) {
                       </p>
                       {step.tags && step.tags.length > 0 ? (
                         <ul
-                          className="mt-5 flex flex-wrap gap-2 xl:flex-col xl:items-start"
+                          className="mt-5 flex flex-wrap gap-2 2xl:flex-col 2xl:items-start"
                           aria-label={`${step.title} details`}
                         >
                           {step.tags.map((tag) => (
