@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test:assistant": "node --no-warnings --import ./tools/assistant/register.mjs --test \"tests/assistant/*.test.ts\"",
+    "check:assistant-bundle": "node tools/assistant/check-bundle.mjs",
     "assets:build": "node tools/assets/build.mjs",
     "assets:optimize": "node tools/assets/optimize.mjs",
     "assets:textures": "node tools/assets/textures.mjs",
