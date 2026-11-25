@@ -37,7 +37,7 @@ export function CsSection({
         )}
       >
         <div className={cn(wide ? "max-w-3xl" : null)}>
-          <p className="font-mono text-[0.68rem] tracking-[0.2em] text-violet uppercase">
+          <p className="font-mono text-[0.75rem] tracking-[0.2em] text-violet uppercase">
             <span aria-hidden>{index} </span>
             {label}
           </p>

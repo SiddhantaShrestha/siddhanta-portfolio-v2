@@ -7,6 +7,7 @@ type ButtonLinkProps = {
   variant?: "primary" | "secondary" | "ghost";
   className?: string;
   external?: boolean;
+  size?: "md" | "lg";
 };
 
 export function ButtonLink({
@@ -15,9 +16,11 @@ export function ButtonLink({
   variant = "primary",
   className,
   external = false,
+  size = "md",
 }: ButtonLinkProps) {
   const classes = cn(
-    "inline-flex min-h-11 items-center justify-center gap-2 px-5 text-sm tracking-wide transition-colors",
+    "inline-flex items-center justify-center gap-2 tracking-wide transition-colors",
+    size === "lg" ? "min-h-12 px-6 text-base" : "min-h-11 px-5 text-sm",
     variant === "primary" &&
       "border border-accent/40 bg-accent/10 text-foreground hover:border-accent hover:bg-accent/15",
     variant === "secondary" &&

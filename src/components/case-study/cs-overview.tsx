@@ -25,9 +25,9 @@ export function CsOverview({ overview, glance }: CsOverviewProps) {
           {glance.map((fact) => (
             <div
               key={fact.label}
-              className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-4 border-t border-line py-3 text-sm"
+              className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-4 border-t border-line py-3 text-[0.9375rem]"
             >
-              <dt className="font-mono text-[0.65rem] tracking-[0.16em] text-muted uppercase">
+              <dt className="font-mono text-[0.75rem] tracking-[0.16em] text-muted uppercase">
                 {fact.label}
               </dt>
               <dd className="text-foreground">{fact.value}</dd>

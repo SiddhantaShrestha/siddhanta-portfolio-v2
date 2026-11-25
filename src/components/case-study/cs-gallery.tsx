@@ -27,7 +27,7 @@ export function CsGallery({ figures }: CsGalleryProps) {
               sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1072px"
             />
           </div>
-          <figcaption className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+          <figcaption className="mt-3 max-w-2xl text-[0.9375rem] leading-6 text-muted">
             {figure.caption}
           </figcaption>
         </figure>

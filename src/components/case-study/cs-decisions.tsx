@@ -12,14 +12,14 @@ export function CsDecisions({ decisions }: CsDecisionsProps) {
         <li key={decision.title} className="border-t border-line py-8">
           <p
             aria-hidden
-            className="font-mono text-[0.65rem] tracking-[0.2em] text-violet uppercase"
+            className="font-mono text-[0.75rem] tracking-[0.2em] text-violet uppercase"
           >
             Decision {String(index + 1).padStart(2, "0")}
           </p>
           <h3 className="mt-3 text-xl leading-snug font-medium tracking-tight text-foreground">
             {decision.title}
           </h3>
-          <p className="mt-3 max-w-xl text-[0.9375rem] leading-7 text-muted">
+          <p className="mt-3 max-w-xl text-base leading-7 text-muted">
             {decision.body}
           </p>
         </li>
