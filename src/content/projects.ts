@@ -26,6 +26,8 @@ export type CaseStudySection = {
 /** Gallery figure with a required caption for Phase 4 pages. */
 export type CaseStudyFigure = ProjectImage & {
   caption: string;
+  /** Opens a native dialog so visitors can inspect a large diagram or screenshot. */
+  expandable?: boolean;
 };
 
 /** One verified architecture / pipeline step. No speculative diagrams. */
@@ -100,13 +102,43 @@ export type CaseStudyDecision = {
 };
 
 /**
+ * Known case study section ids. Used by `sectionOrder` so each project can
+ * lead with its strengths. Unknown ids are ignored at render time.
+ */
+export type CaseStudySectionId =
+  | "overview"
+  | "problem"
+  | "role"
+  | "architecture"
+  | "features"
+  | "decisions"
+  | "screenshots"
+  | "evidence";
+
+/** Default CiteDocs order. Also used as the fallback for missing ids. */
+export const DEFAULT_CASE_STUDY_SECTION_ORDER: readonly CaseStudySectionId[] = [
+  "overview",
+  "problem",
+  "role",
+  "architecture",
+  "features",
+  "decisions",
+  "screenshots",
+  "evidence",
+] as const;
+
+/**
  * Optional case study detail. Homepage cards ignore this object.
  * Omit or leave fields undefined when evidence is missing.
- * Phase 4B will render these sections; Phase 4A only stores verified draft copy.
  */
 export type ProjectCaseStudy = {
   /** Only published case studies use the Phase 4B layout. Others keep the stub. */
   published?: boolean;
+  /**
+   * Optional section order. Only listed ids that have content are rendered.
+   * Missing ids that still have content append in the default CiteDocs order.
+   */
+  sectionOrder?: CaseStudySectionId[];
   overview?: string;
   /** At-a-glance rail beside the overview. */
   glance?: CaseStudyFact[];
@@ -118,10 +150,23 @@ export type ProjectCaseStudy = {
   architecture?: {
     summary: string;
     steps: CaseStudyArchStep[];
+    /** Optional section title. Defaults to "How it is built". */
+    heading?: string;
+    /** Optional section label. Defaults to "Architecture". */
+    label?: string;
   };
   features?: string[];
   decisions?: CaseStudyDecision[];
   figures?: CaseStudyFigure[];
+  /**
+   * Gallery layout. "stack" is full-width figures for product screenshots.
+   * Defaults to "grid".
+   */
+  galleryLayout?: "grid" | "stack";
+  /** Optional screenshots section label. Defaults to "Screenshots". */
+  galleryLabel?: string;
+  /** Optional screenshots section title. Defaults to "The product in use". */
+  galleryTitle?: string;
   results?: string[];
 };
 
@@ -153,16 +198,33 @@ export const projects: Project[] = [
       "Major professional full-stack work on Recruit Nepal’s hiring platform: employer interfaces, APIs, AI CV extraction, candidate search and matching, recruiter workflows, and application tracking, built with the wider product team.",
     highlights: [
       "Contributed across employer dashboards, recruiter workflows, application tracking, candidate search and matching, and related Intern Nepal CRM work.",
-      "Built and integrated Node.js and Express APIs, and worked with Azure AI Document Intelligence for CV extraction and prompt refinement in recruitment flows.",
+      "Worked across the Next.js and Express TypeScript stack, including PostgreSQL, Redis job queues, realtime Socket.IO surfaces, and AI-assisted CV and recruitment flows.",
     ],
     stack: [
-      "React",
       "Next.js",
+      "React",
+      "TypeScript",
       "Tailwind CSS",
       "shadcn/ui",
+      "TanStack Query",
+      "Zustand",
+      "React Hook Form",
+      "Zod",
+      "NextAuth",
+      "Framer Motion",
       "Node.js",
       "Express",
+      "PostgreSQL",
+      "Sequelize",
+      "pgvector",
+      "Redis",
+      "BullMQ",
+      "Socket.IO",
+      "JWT",
       "Azure AI Document Intelligence",
+      "OpenAI",
+      "Anthropic",
+      "Gemini",
     ],
     featured: true,
     image: {
@@ -181,44 +243,118 @@ export const projects: Project[] = [
       },
     ],
     caseStudy: {
+      published: true,
+      sectionOrder: [
+        "overview",
+        "problem",
+        "role",
+        "screenshots",
+        "features",
+        "architecture",
+        "decisions",
+        "evidence",
+      ],
+      galleryLayout: "stack",
       overview:
         "Recruit Nepal is a hiring platform that connects candidates and employers across Nepal. It is one of my major professional engineering projects as a Full Stack Developer. The product is built collaboratively; this write-up covers the breadth of my contributions across frontend, backend, and AI features without claiming sole ownership of every module.",
+      glance: [
+        { label: "Type", value: "Collaborative professional work" },
+        { label: "Ownership", value: "Team product · Full Stack Developer" },
+        {
+          label: "Frontend",
+          value: "Next.js App Router, React, TypeScript, Tailwind, shadcn/ui",
+        },
+        {
+          label: "Backend",
+          value: "Node.js, Express, PostgreSQL, Redis, BullMQ",
+        },
+        {
+          label: "AI",
+          value: "Azure Document Intelligence, OpenAI, Anthropic, Gemini",
+        },
+        {
+          label: "Scale",
+          value: "7,597 unique users · project-reported, Nov 2026",
+        },
+      ],
       problem: {
         heading: "Problem and motivation",
         body: "Hiring teams needed shared workflows for jobs, applications, review, and matching. Structured CV data and AI-assisted steps had to fit into recruiter tools without forcing manual re-entry from PDFs.",
       },
       role: {
-        heading: "My role",
-        body: "Full Stack Developer at Intern Nepal / Recruit Nepal (Jun 2025–present), after an earlier intern period (Jul 2024–Jan 2025). I have worked extensively across almost every major part of the platform: employer dashboards and interfaces; backend APIs and integrations; AI-powered CV extraction; candidate search and matching; recruiter workflows; application tracking and management; relevant Intern Nepal CRM development and integrations; and broader frontend and backend platform work. The platform is developed with a team. I do not claim to be the sole developer or to have personally implemented every individual feature.",
+        heading: "My contribution",
+        body: "Full Stack Developer at Intern Nepal / Recruit Nepal (Jun 2025–present), after an earlier intern period (Jul 2024–Jan 2025). I have worked extensively across almost every major part of the platform. The platform is developed with a team. I do not claim to be the sole developer or to have personally implemented every individual feature.",
       },
+      contributions: [
+        "Employer dashboards and interfaces",
+        "Backend APIs and integrations",
+        "AI-powered CV extraction",
+        "Candidate search and matching",
+        "Recruiter workflows",
+        "Application tracking and ATS surfaces",
+        "Relevant Intern Nepal CRM development and integrations",
+        "Broader frontend and backend platform engineering",
+      ],
       architecture: {
         summary:
-          "Public portfolio and experience copy describe a React/Next.js client with Node.js/Express REST APIs and Azure AI Document Intelligence for CV processing. Internal infrastructure diagrams are not public, so steps below stay at the contribution layer rather than private ops detail.",
+          "The product stack spans a Next.js App Router frontend and a Node.js/Express TypeScript API, with PostgreSQL (Sequelize, pgvector), Redis and BullMQ for data and background work, Socket.IO for realtime surfaces, and AI providers for CV extraction and assisted recruitment. Internal hosting diagrams stay private, so the stages below stay at the contribution and system layer.",
         steps: [
           {
             title: "Employer and recruiter clients",
             detail:
-              "Employer dashboards, recruiter workflows, and related UI built with React, Next.js, Tailwind CSS, and shadcn/ui.",
+              "Employer dashboards, recruiter workflows, and related UI on Next.js App Router with React and TypeScript. UI uses Tailwind CSS and shadcn/ui (Radix). Client data and forms use TanStack Query, Zustand, React Hook Form, and Zod. Auth and motion use NextAuth and Framer Motion; realtime updates use Socket.IO on the client.",
+            tags: [
+              "Next.js App Router",
+              "React",
+              "TypeScript",
+              "Tailwind CSS",
+              "shadcn/ui",
+              "TanStack Query",
+              "Zustand",
+              "NextAuth",
+            ],
           },
           {
-            title: "APIs and integrations",
+            title: "APIs, auth, and realtime",
             detail:
-              "Node.js and Express REST APIs and integrations behind candidate, recruiter, and application workflows.",
+              "Node.js and Express TypeScript REST APIs behind candidate, recruiter, and application workflows. Request validation with Zod, authenticated access with JWT and NextAuth-backed sessions, and Socket.IO for realtime recruiter and applicant surfaces.",
+            tags: [
+              "Node.js",
+              "Express",
+              "TypeScript",
+              "JWT",
+              "Zod",
+              "Socket.IO",
+            ],
           },
           {
-            title: "AI CV extraction",
+            title: "Data, vectors, and job queues",
             detail:
-              "Azure AI Document Intelligence extracts structured information from CVs; prompts are refined for AI-assisted recruitment steps.",
+              "PostgreSQL is the primary store, accessed with Sequelize, including pgvector for vector-backed retrieval needs. Redis and BullMQ handle caches and background jobs so long-running work stays off the request path.",
+            tags: ["PostgreSQL", "Sequelize", "pgvector", "Redis", "BullMQ"],
           },
           {
-            title: "Search, matching, and tracking",
+            title: "AI CV extraction and model APIs",
             detail:
-              "Candidate search and matching capabilities plus application tracking and management surfaces used in day-to-day hiring.",
+              "Azure AI Document Intelligence extracts structured information from CVs. Broader assisted recruitment steps use configured model APIs across OpenAI, Azure, Anthropic, and Gemini. Prompts and extraction flows are refined for recruiter workflows.",
+            tags: [
+              "Azure Document Intelligence",
+              "OpenAI",
+              "Anthropic",
+              "Gemini",
+            ],
+            badge: "AI extraction",
           },
           {
-            title: "CRM-related work",
+            title: "Search, tracking, and CRM",
             detail:
-              "Relevant Intern Nepal CRM development and integrations connected to the broader recruitment product line.",
+              "Candidate search and matching, application tracking and ATS surfaces, plus relevant Intern Nepal CRM development and integrations connected to the broader recruitment product line.",
+            tags: [
+              "Candidate search",
+              "Matching",
+              "ATS tracking",
+              "Intern Nepal CRM",
+            ],
           },
         ],
       },
@@ -256,7 +392,7 @@ export const projects: Project[] = [
           width: 1600,
           height: 1000,
           caption:
-            "Applicant review dashboard on the test server using demo applicant rows. Recruiters can review AI suggestions and update hiring stages. Not a production screenshot; no real candidate personal data visible in this export.",
+            "Test environment only. Applicant review dashboard using demo applicant rows. Recruiters can review AI suggestions and update hiring stages. Not a production screenshot; no real candidate personal data is visible in this export.",
         },
       ],
       results: [
@@ -530,44 +666,86 @@ export const projects: Project[] = [
       },
     ],
     caseStudy: {
+      published: true,
+      sectionOrder: [
+        "overview",
+        "problem",
+        "role",
+        "architecture",
+        "features",
+        "decisions",
+        "screenshots",
+        "evidence",
+      ],
+      galleryLabel: "Diagram",
+      galleryTitle: "LinkedIn workflow export",
       overview:
         "AI and workflow automation for hiring posts. A vacancy arrives by webhook, required fields are checked, Gemini helps prepare caption and poster content, and the team workflow publishes to LinkedIn, Facebook, and Instagram. Detailed node-level evidence in the public repository covers the LinkedIn path.",
+      glance: [
+        { label: "Type", value: "Collaborative AI and automation" },
+        { label: "Ownership", value: "Team project" },
+        { label: "Engine", value: "n8n, Gemini 2.5 Flash" },
+        { label: "Channels", value: "LinkedIn, Facebook, Instagram" },
+        {
+          label: "Public evidence",
+          value: "LinkedIn n8n export and workflow diagram",
+        },
+      ],
       problem: {
         heading: "Problem and motivation",
         body: "Manual hiring posts repeat the same caption and creative work across channels. Automation keeps intake, generation, and publishing consistent when vacancies arrive as structured payloads.",
       },
       role: {
-        heading: "My role",
+        heading: "My contribution",
         body: "Developed collaboratively with a team. Public evidence includes the n8n LinkedIn workflow export and README. Broader multi-network publishing (Facebook and Instagram) is confirmed for the team project; those channel implementations are not fully documented in the public LinkedIn-focused repository.",
       },
+      contributions: [
+        "Webhook vacancy intake and required-field validation",
+        "Gemini-assisted caption and poster preparation (public LinkedIn export)",
+        "Google Drive brand logo step documented in the public export",
+        "LinkedIn publishing path documented in the public n8n repository",
+        "Team-scope publishing across LinkedIn, Facebook, and Instagram",
+      ],
       architecture: {
+        label: "Workflow",
+        heading: "How the workflow runs",
         summary:
-          "Confirmed team capability: webhook intake, validation, Gemini-assisted generation, and publishing to LinkedIn, Facebook, and Instagram. Structured steps below follow the public n8n LinkedIn export. Facebook and Instagram publishing is confirmed at the product level without inventing undocumented API or scheduler details.",
+          "Confirmed team capability: webhook intake, validation, Gemini-assisted generation, and publishing to LinkedIn, Facebook, and Instagram. The five stages below follow the public n8n LinkedIn export. Facebook and Instagram publishing is confirmed at the product level without inventing undocumented API or scheduler details.",
         steps: [
           {
             title: "Authenticated webhook",
             detail:
               "POST JSON vacancy payload. Required fields in the public export include title and link; description, company, location, and employment type are optional helpers.",
+            tags: ["Webhook", "JSON vacancy", "Auth required"],
           },
           {
             title: "Validate fields",
             detail:
               "Workflow checks required fields before calling generation steps.",
+            tags: ["Required: title, link", "Optional helpers"],
           },
           {
             title: "Gemini-assisted content",
             detail:
               "Public export uses Gemini 2.5 Flash for caption writing and poster image edit prompts.",
+            tags: ["Gemini 2.5 Flash", "Caption", "Poster prompt"],
           },
           {
             title: "Brand logo from Google Drive",
             detail:
               "Where supported by the public export, the workflow downloads a brand logo from Google Drive for the poster.",
+            tags: ["Google Drive", "Brand logo"],
           },
           {
             title: "Social publishing",
             detail:
               "Team project publishes to LinkedIn, Facebook, and Instagram. The public repository documents LinkedIn OAuth posting. Facebook and Instagram mechanisms are confirmed as project outputs, not reconstructed from missing public exports.",
+            tags: [
+              "LinkedIn documented",
+              "Facebook team scope",
+              "Instagram team scope",
+            ],
+            badge: "Team channels",
           },
         ],
       },
@@ -591,11 +769,12 @@ export const projects: Project[] = [
       figures: [
         {
           src: "/projects/job-post-automation.png",
-          alt: "Job Post Automation workflow diagram",
+          alt: "Job Post Automation n8n workflow diagram for the documented LinkedIn vacancy-to-post path",
           width: 1400,
           height: 900,
           caption:
-            "Exported n8n workflow diagram for the documented LinkedIn vacancy-to-post path.",
+            "Exported n8n workflow diagram for the documented LinkedIn vacancy-to-post path. Facebook and Instagram are confirmed team publishing channels; their node-level graphs are not reconstructed here.",
+          expandable: true,
         },
       ],
       results: [

@@ -1,36 +1,44 @@
-import Image from "next/image";
+import { CsExpandableFigure } from "@/components/case-study/cs-expandable-figure";
 import type { CaseStudyFigure } from "@/content/projects";
 import { cn } from "@/lib/cn";
 
 type CsGalleryProps = {
   figures: CaseStudyFigure[];
+  /**
+   * "stack" shows each figure full width (better for product screenshots).
+   * "grid" pairs figures from md up. Default grid keeps CiteDocs-safe behavior
+   * when a multi-image gallery is added later.
+   */
+  layout?: "grid" | "stack";
 };
 
 /** Captioned screenshots. The page omits the section when there are none. */
-export function CsGallery({ figures }: CsGalleryProps) {
+export function CsGallery({ figures, layout = "grid" }: CsGalleryProps) {
+  const stack = layout === "stack" || figures.length === 1;
+
   return (
-    <div className={cn("grid gap-10", figures.length > 1 && "md:grid-cols-2")}>
+    <div
+      className={cn(
+        "grid gap-12 sm:gap-14",
+        !stack && figures.length > 1 && "md:grid-cols-2 md:gap-10",
+      )}
+    >
       {figures.map((figure, index) => (
-        <figure
+        <div
           key={figure.src}
           className={cn(
-            index === 0 && figures.length % 2 === 1 && "md:col-span-2",
+            !stack &&
+              index === 0 &&
+              figures.length % 2 === 1 &&
+              "md:col-span-2",
           )}
         >
-          <div className="overflow-hidden border border-line bg-surface">
-            <Image
-              src={figure.src}
-              alt={figure.alt}
-              width={figure.width}
-              height={figure.height}
-              className="h-auto w-full"
-              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1072px"
-            />
-          </div>
-          <figcaption className="mt-3 max-w-2xl text-[0.9375rem] leading-6 text-muted">
-            {figure.caption}
-          </figcaption>
-        </figure>
+          <CsExpandableFigure
+            figure={figure}
+            prominent={stack}
+            priority={index === 0}
+          />
+        </div>
       ))}
     </div>
   );

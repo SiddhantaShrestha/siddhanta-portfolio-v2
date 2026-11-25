@@ -40,7 +40,7 @@ Scope: verified facts, conflicts, confirmations, and remaining gaps. No case stu
 ### Verified / retained evidence
 
 - Live product: https://recruitnepal.com
-- Stack named publicly: React, Next.js, Tailwind CSS, shadcn/ui, Node.js, Express, Azure AI Document Intelligence
+- Stack confirmed by owner for Phase 4C Group A: Next.js App Router, React, TypeScript, Tailwind CSS, shadcn/ui (Radix), TanStack Query, Zustand, React Hook Form, Zod, NextAuth, Framer Motion, Socket.IO, Node.js, Express, PostgreSQL, Sequelize, pgvector, Redis, BullMQ, JWT, Azure AI Document Intelligence, OpenAI, Anthropic, Gemini
 - Homepage screenshot: `public/projects/recruitnepal.png`
 - Applicant review screenshot: `public/projects/recruit-nepal-applicant-review.png`
   - Reviewed for Phase 4A: rows labeled Demo Applicant A/B; treated as test/demo data
