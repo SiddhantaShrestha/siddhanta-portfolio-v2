@@ -90,7 +90,9 @@ const CASES: Case[] = [
   {
     name: "Unrelated question",
     question: "What is the capital of France?",
-    expect: [/(portfolio|project|experience|skill|only|can't help|not able)/i],
+    expect: [
+      /(portfolio|project|experience|skill|only|can't help|not able|don't have verified)/i,
+    ],
     forbid: [/\bParis\b/i],
   },
   {

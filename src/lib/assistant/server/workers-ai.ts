@@ -46,6 +46,10 @@ export function createWorkersAiProvider(
             stream: true,
             max_tokens: request.maxOutputTokens,
             temperature: 0.2,
+            // Gemma 4 thinks first by default. Thinking text never reaches the
+            // visitor and eats the whole token budget, so the answer comes back
+            // empty. Switch it off. Models without this option ignore it.
+            chat_template_kwargs: { enable_thinking: false },
           }),
           signal,
           redirect: "error",

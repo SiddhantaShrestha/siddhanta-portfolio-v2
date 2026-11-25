@@ -162,6 +162,38 @@ test("provider sends the key only in the Authorization header, one attempt", asy
   assert.equal(call.init.redirect, "error");
 });
 
+test("provider switches model thinking off in the request", async () => {
+  let body: Record<string, unknown> = {};
+  const provider = providerWith(async (_url, init) => {
+    body = JSON.parse(String(init?.body));
+    return sseResponse([sseData("ok"), "data: [DONE]\n\n"]);
+  });
+  await collect(provider.stream(request()));
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
+});
+
+test("thinking text is never shown, and thinking-only output is an error", async () => {
+  const thinking = (text: string) =>
+    `data: ${JSON.stringify({ choices: [{ delta: { reasoning_content: text, content: "" } }] })}\n\n`;
+
+  const mixed = providerWith(async () =>
+    sseResponse([
+      thinking("secret reasoning "),
+      sseData("Visible answer."),
+      "data: [DONE]\n\n",
+    ]),
+  );
+  assert.equal(await collect(mixed.stream(request())), "Visible answer.");
+
+  const onlyThinking = providerWith(async () =>
+    sseResponse([thinking("still thinking"), "data: [DONE]\n\n"]),
+  );
+  await assert.rejects(
+    collect(onlyThinking.stream(request())),
+    (e: unknown) => e instanceof ProviderError && e.code === "upstream",
+  );
+});
+
 test("provider ignores malformed events up to a small limit", async () => {
   const provider = providerWith(async () =>
     sseResponse([
