@@ -11,7 +11,7 @@ Preview Worker: `siddhanta-portfolio-preview` (unchanged)
   (zone `siddhantashrestha.com.np`), not a Workers Custom Domain.
 - `workers_dev` is `false` so the `*.workers.dev` URL stays off.
 - www is not configured.
-- Public AI stays off (`ASSISTANT_PRODUCTION_GATES_CONFIRMED` unset).
+- Public AI is on when Worker secret `ASSISTANT_PRODUCTION_GATES_CONFIRMED=true`.
 
 ## Why a route (not Custom Domain)
 
@@ -33,9 +33,26 @@ edit DNS. The zone route reuses those DNS records and sends apex traffic to
   list; it will not remove the apex route while that entry remains, and it
   will not create a duplicate of the same pattern.
 
-## Indexable production deploy
+## CI/CD (GitHub Actions)
 
-Always deploy with indexing enabled after cutover:
+Workflow: `.github/workflows/deploy-production.yml`
+
+- Runs on every push to `master`, and on manual `workflow_dispatch`
+- Builds with `NEXT_PUBLIC_SITE_URL=https://siddhantashrestha.com.np` and
+  `PRODUCTION_ALLOW_INDEXING=true`
+- Deploys Worker `siddhanta-portfolio` with `wrangler.production.jsonc`
+
+Required GitHub Actions secrets:
+
+- `CLOUDFLARE_ACCOUNT_ID` — `c78699d8a1d9165992bc89f6f106b34e`
+- `CLOUDFLARE_API_TOKEN` — Cloudflare API token from
+  [API tokens](https://dash.cloudflare.com/profile/api-tokens) using the
+  **Edit Cloudflare Workers** template (Workers Scripts Edit + Workers Routes)
+
+Worker secret `ASSISTANT_PRODUCTION_GATES_CONFIRMED` stays on Cloudflare only.
+Do not put it in GitHub.
+
+## Manual production deploy
 
 ```powershell
 $env:NEXT_PUBLIC_SITE_URL="https://siddhantashrestha.com.np"
