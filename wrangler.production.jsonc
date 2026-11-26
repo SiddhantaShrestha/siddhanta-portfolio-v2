@@ -1,13 +1,21 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // Production Worker. Separate from siddhanta-portfolio-preview.
-  // Custom domain is attached only at cutover approval, not in Gate 1.
+  // Apex is attached via a Workers route (not Custom Domain). Keep this
+  // single routes entry so future deploys upsert the same pattern and do
+  // not drop apex traffic or create a duplicate route.
   "name": "siddhanta-portfolio",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  "workers_dev": true,
+  "workers_dev": false,
   "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "siddhantashrestha.com.np/*",
+      "zone_name": "siddhantashrestha.com.np",
+    },
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
