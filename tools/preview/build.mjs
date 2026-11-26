@@ -26,7 +26,9 @@ function run(command, args) {
   const result = spawnSync(command, args, {
     env,
     stdio: "inherit",
-    shell: process.platform === "win32",
+    // Avoid shell:true on Windows so paths with spaces (e.g. Program Files) work.
+    shell: false,
+    windowsHide: true,
   });
   if ((result.status ?? 1) !== 0) {
     process.exit(result.status ?? 1);
@@ -37,5 +39,8 @@ console.log(
   `Building preview Worker (noindex). NEXT_PUBLIC_SITE_URL=${siteUrl}`,
 );
 
-run("npx", ["opennextjs-cloudflare", "build"]);
+run(process.execPath, [
+  "node_modules/@opennextjs/cloudflare/dist/cli/index.js",
+  "build",
+]);
 run(process.execPath, ["tools/preview/patch-worker.mjs"]);
