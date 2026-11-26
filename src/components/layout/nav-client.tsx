@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SiteLogo } from "@/components/brand/site-logo";
 import { MobileMenu } from "@/components/layout/mobile-menu";
 import { navItems, observedSectionIds } from "@/content/navigation";
 import { cn } from "@/lib/cn";
@@ -118,9 +119,10 @@ export function NavClient() {
       <div className="section-shell flex items-center justify-between gap-4 py-3.5">
         <Link
           href="/#home"
-          className="text-sm font-medium tracking-wide text-foreground"
+          className="inline-flex items-center gap-2.5 text-sm font-medium tracking-wide text-foreground transition-colors hover:text-accent"
         >
-          Siddhanta Shrestha
+          <SiteLogo className="size-8 rounded-[0.45rem] shadow-[0_0_0_1px_var(--color-line)]" />
+          <span>Siddhanta Shrestha</span>
         </Link>
 
         <nav aria-label="Primary" className="hidden md:block">
