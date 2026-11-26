@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SkipLink } from "@/components/layout/skip-link";
 import { PersonJsonLd } from "@/components/seo/person-json-ld";
 import { profile } from "@/content/site";
-import { getSiteUrl } from "@/lib/env";
+import { getRobotsMetadata, getSiteUrl } from "@/lib/env";
 import "./globals.css";
 
 const geist = Geist({
@@ -42,6 +42,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  robots: getRobotsMetadata(),
   openGraph: {
     title: `${profile.name} — ${profile.jobTitle}`,
     description: profile.description,

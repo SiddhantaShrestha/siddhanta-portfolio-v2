@@ -1,9 +1,10 @@
 /**
  * Durable Object class for the assistant usage gate.
  *
- * This file is NOT part of the Next.js app. It is exported from the Worker
- * entry (see cloudflare/README.md) and bound as ASSISTANT_GATE. It uses the
- * classic fetch interface, so it needs no imports from "cloudflare:workers".
+ * This file is NOT part of the Next.js app. Phase 7 exports it from the
+ * generated OpenNext worker via tools/preview/patch-worker.mjs and binds it
+ * as ASSISTANT_GATE. It uses the classic fetch interface, so it needs no
+ * imports from "cloudflare:workers".
  *
  * Use ONE instance, named "global". That single instance is what makes the
  * daily model budget real.

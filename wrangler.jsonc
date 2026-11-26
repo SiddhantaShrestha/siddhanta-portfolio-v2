@@ -1,0 +1,55 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Preview Worker only. Production domain DNS is not attached here.
+  "name": "siddhanta-portfolio-preview",
+  // Keep the OpenNext-generated worker as the entry. A separate custom entry
+  // that imports it gets re-bundled and hangs on page requests. AssistantGate
+  // is appended by tools/preview/patch-worker.mjs after each preview build.
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Regular workers.dev hostname for this Worker. Do not use versioned
+  // Preview URLs for a Worker that exports AssistantGate.
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "siddhanta-portfolio-preview",
+    },
+  ],
+  "images": {
+    "binding": "IMAGES",
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ASSISTANT_GATE",
+        "class_name": "AssistantGate",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["AssistantGate"],
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "ASSISTANT_EDGE_LIMIT",
+      "namespace_id": "1001",
+      "simple": { "limit": 30, "period": 60 },
+    },
+  ],
+  "vars": {
+    "ASSISTANT_DAILY_LIMIT": "100",
+    // Public model path stays closed until gates are verified on this Worker.
+    // Do not set ASSISTANT_PRODUCTION_GATES_CONFIRMED here.
+    "NEXT_PUBLIC_SITE_ROBOTS": "noindex",
+  },
+}
