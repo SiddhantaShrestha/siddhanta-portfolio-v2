@@ -101,8 +101,8 @@ far.
 
 ## Still open before public use
 
-- Choose and set up the deployment adapter (see above).
-- Run the live check with real credentials and read the answers.
+- Preview adapter work moved to Phase 7 (`docs/phase-7-preview.md`).
 - Confirm the account is on Workers Free and the token is scoped.
-- Rotate and remove the committed secrets.
-- Then set `ASSISTANT_PRODUCTION_GATES_CONFIRMED=true`.
+- Rotate and remove the committed secrets (RecipeNest separate repo).
+- After the preview Worker gates are verified, set
+  `ASSISTANT_PRODUCTION_GATES_CONFIRMED=true` on that Worker only.

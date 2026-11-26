@@ -1,0 +1,10 @@
+# Local Workers runtime only (copied to .dev.vars, never committed).
+# NEXTJS_ENV tells OpenNext which Next .env file to load.
+NEXTJS_ENV=development
+
+# Optional for local workerd assistant tests. Prefer .env.local for next dev.
+# CLOUDFLARE_ACCOUNT_ID=
+# CLOUDFLARE_AI_API_TOKEN=
+
+# Keep the public model path closed until preview gates are verified.
+# ASSISTANT_PRODUCTION_GATES_CONFIRMED=

@@ -17,6 +17,13 @@
 /.next/
 /out/
 
+# OpenNext / Wrangler local output
+/.open-next/
+/.wrangler/
+.dev.vars
+.dev.vars.*
+!/.dev.vars.example
+
 # production
 /build
 

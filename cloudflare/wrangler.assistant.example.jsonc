@@ -1,15 +1,16 @@
-// EXAMPLE ONLY. This is not the project's deployment config and nothing reads
-// it. It shows the assistant-specific parts to merge into a real wrangler
-// config once a deployment adapter is chosen. See docs/phase-6b-production.md.
+// EXAMPLE ONLY. The live preview config is wrangler.jsonc at the repo root
+// (Phase 7). This file still documents the assistant-specific bindings.
+// See docs/phase-6b-production.md and docs/phase-7-preview.md.
 //
 // Verified in a throwaway copy with @opennextjs/cloudflare 1.20.18 and
 // wrangler 4.168.0 on local workerd: Durable Object gate, Rate Limiting
 // binding, vars and secrets all reached the /api/assistant route.
 {
   "name": "your-worker-name",
-  // Pages rendered by OpenNext need the real adapter output here. With
-  // OpenNext, "main" points at a custom worker that re-exports AssistantGate.
-  "main": "custom-worker.ts",
+  // Real preview config uses ".open-next/worker.js" plus
+  // tools/preview/patch-worker.mjs (do not import that worker from a separate
+  // entry, or Wrangler re-bundles OpenNext and page requests hang).
+  "main": ".open-next/worker.js",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 

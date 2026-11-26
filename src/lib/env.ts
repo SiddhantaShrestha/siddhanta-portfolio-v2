@@ -17,3 +17,18 @@ export function getSiteUrl(): string {
     return LOCAL_SITE_URL;
   }
 }
+
+/**
+ * Indexing policy for metadata. Preview builds set
+ * NEXT_PUBLIC_SITE_ROBOTS=noindex at build time. Production leaves it unset,
+ * so the live site stays indexable.
+ */
+export function getRobotsMetadata(): {
+  index: boolean;
+  follow: boolean;
+} {
+  if (process.env.NEXT_PUBLIC_SITE_ROBOTS === "noindex") {
+    return { index: false, follow: false };
+  }
+  return { index: true, follow: true };
+}
