@@ -206,6 +206,7 @@ export function cloudflareRuntime(
     cloudflare: true,
     gate: createDurableGate(namespace, { ...GATE_LIMITS, ...limits }),
     edgeLimit: null,
+    ai: null,
     env: undefined,
     ...extra,
   };

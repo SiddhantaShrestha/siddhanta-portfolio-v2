@@ -25,6 +25,11 @@
   "images": {
     "binding": "IMAGES",
   },
+  // Native Workers AI. The REST API works from Node but failed from this
+  // Worker; the binding is the supported in-Worker path for Gemma.
+  "ai": {
+    "binding": "AI",
+  },
   "durable_objects": {
     "bindings": [
       {

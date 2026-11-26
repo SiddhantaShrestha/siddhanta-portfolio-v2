@@ -172,6 +172,35 @@ test("provider switches model thinking off in the request", async () => {
   assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
 });
 
+test("provider uses the AI binding when present and skips REST", async () => {
+  let restCalls = 0;
+  const seen: Record<string, unknown>[] = [];
+  const fetchImpl: typeof fetch = async () => {
+    restCalls += 1;
+    return sseResponse([sseData("from-rest"), "data: [DONE]\n\n"]);
+  };
+  const encoder = new TextEncoder();
+  const ai = {
+    async run(_model: string, inputs: Record<string, unknown>) {
+      seen.push(inputs);
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(sseData("from-binding")));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+    },
+  };
+  const provider = createWorkersAiProvider(FAKE_CONFIG, fetchImpl, ai);
+  assert.equal(await collect(provider.stream(request())), "from-binding");
+  assert.equal(restCalls, 0);
+  assert.equal(seen[0]?.stream, true);
+  assert.deepEqual(seen[0]?.chat_template_kwargs, {
+    enable_thinking: false,
+  });
+});
+
 test("thinking text is never shown, and thinking-only output is an error", async () => {
   const thinking = (text: string) =>
     `data: ${JSON.stringify({ choices: [{ delta: { reasoning_content: text, content: "" } }] })}\n\n`;

@@ -14,13 +14,27 @@ const MAX_MALFORMED_EVENTS = 3;
 type FetchLike = typeof fetch;
 
 /**
- * Cloudflare Workers AI through its OpenAI-compatible REST endpoint.
- * Plain fetch and Web streams only, so it runs the same on Node and on Workers.
- * One attempt per call. No AI Gateway, so no request logging is configured.
+ * Minimal Workers AI binding. `run` with `stream: true` returns a byte stream
+ * (SSE for chat models) or a Response whose body is that stream.
+ */
+export type WorkersAiBinding = {
+  run(
+    model: string,
+    inputs: Record<string, unknown>,
+  ): Promise<ReadableStream<Uint8Array> | Response | Record<string, unknown>>;
+};
+
+/**
+ * Cloudflare Workers AI.
+ *
+ * On a deployed Worker, prefer the native `AI` binding. Plain REST to
+ * api.cloudflare.com works from Node (local eval) but failed from the
+ * preview Worker with an upstream error and no HTTP status.
  */
 export function createWorkersAiProvider(
   config: AssistantConfig,
   fetchImpl: FetchLike = fetch,
+  ai: WorkersAiBinding | null = null,
 ): ChatProvider {
   const url = `${config.baseUrl}/accounts/${config.accountId}/ai/v1/chat/completions`;
 
@@ -30,102 +44,176 @@ export function createWorkersAiProvider(
     async *stream(request: ProviderRequest) {
       const timeout = AbortSignal.timeout(config.timeoutMs);
       const signal = AbortSignal.any([request.signal, timeout]);
+      const inputs = {
+        messages: request.messages,
+        stream: true,
+        max_tokens: request.maxOutputTokens,
+        temperature: 0.2,
+        // Gemma 4 thinks first by default. Thinking text never reaches the
+        // visitor and eats the whole token budget, so the answer comes back
+        // empty. Switch it off. Models without this option ignore it.
+        chat_template_kwargs: { enable_thinking: false },
+      };
 
-      let response: Response;
-      try {
-        response = await fetchImpl(url, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${config.apiToken}`,
-            "content-type": "application/json",
-            accept: "text/event-stream",
-          },
-          body: JSON.stringify({
-            model: config.model,
-            messages: request.messages,
-            stream: true,
-            max_tokens: request.maxOutputTokens,
-            temperature: 0.2,
-            // Gemma 4 thinks first by default. Thinking text never reaches the
-            // visitor and eats the whole token budget, so the answer comes back
-            // empty. Switch it off. Models without this option ignore it.
-            chat_template_kwargs: { enable_thinking: false },
-          }),
-          signal,
-          redirect: "error",
-          cache: "no-store",
-        });
-      } catch (error) {
-        throw toProviderError(error, timeout, request.signal);
-      }
+      const body = ai
+        ? await streamFromBinding(ai, config.model, inputs, signal, timeout)
+        : await streamFromRest(
+            fetchImpl,
+            url,
+            config.apiToken,
+            { model: config.model, ...inputs },
+            signal,
+            timeout,
+          );
 
-      if (!response.ok) {
-        // The body is never forwarded to visitors and never logged.
-        await response.body?.cancel().catch(() => undefined);
-        throw statusToError(response.status);
-      }
-
-      const contentType = response.headers.get("content-type") ?? "";
-      if (!response.body || !contentType.includes("text/event-stream")) {
-        await response.body?.cancel().catch(() => undefined);
-        throw new ProviderError("upstream", "Unexpected response type.");
-      }
-
-      const reader = response.body.getReader();
-      const parser = new SseParser();
-      let malformed = 0;
-      let produced = false;
-      let finished = false;
-
-      try {
-        while (!finished) {
-          let chunk: ReadableStreamReadResult<Uint8Array>;
-          try {
-            chunk = await reader.read();
-          } catch (error) {
-            throw toProviderError(error, timeout, request.signal);
-          }
-
-          const payloads = chunk.done
-            ? parser.end()
-            : parser.pushBytes(chunk.value);
-
-          for (const payload of payloads) {
-            if (payload.trim() === "[DONE]") {
-              finished = true;
-              break;
-            }
-            const parsed = parseEvent(payload);
-            if (parsed.kind === "malformed") {
-              malformed += 1;
-              if (malformed > MAX_MALFORMED_EVENTS) {
-                throw new ProviderError("upstream", "Malformed stream.");
-              }
-              continue;
-            }
-            if (parsed.kind === "error") {
-              throw new ProviderError(
-                "upstream",
-                "Provider reported an error.",
-              );
-            }
-            if (parsed.text) {
-              produced = true;
-              yield parsed.text;
-            }
-          }
-
-          if (chunk.done) finished = true;
-        }
-      } finally {
-        await reader.cancel().catch(() => undefined);
-      }
-
-      if (!produced) {
-        throw new ProviderError("upstream", "Empty response.");
-      }
+      yield* readSseText(body, signal, timeout);
     },
   };
+}
+
+async function streamFromBinding(
+  ai: WorkersAiBinding,
+  model: string,
+  inputs: Record<string, unknown>,
+  signal: AbortSignal,
+  timeout: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  let result: Awaited<ReturnType<WorkersAiBinding["run"]>>;
+  try {
+    // AbortSignal is not part of the AI binding API. Honour cancel by racing.
+    result = await Promise.race([
+      ai.run(model, inputs),
+      abortPromise(signal, timeout),
+    ]);
+  } catch (error) {
+    throw toProviderError(error, timeout, signal);
+  }
+
+  if (result instanceof ReadableStream) return result;
+  if (result instanceof Response) {
+    if (!result.ok) {
+      await result.body?.cancel().catch(() => undefined);
+      throw statusToError(result.status);
+    }
+    if (!result.body) {
+      throw new ProviderError("upstream", "Unexpected response type.");
+    }
+    return result.body;
+  }
+
+  throw new ProviderError("upstream", "Unexpected response type.");
+}
+
+async function streamFromRest(
+  fetchImpl: FetchLike,
+  url: string,
+  apiToken: string,
+  inputs: Record<string, unknown>,
+  signal: AbortSignal,
+  timeout: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiToken}`,
+        "content-type": "application/json",
+        accept: "text/event-stream",
+      },
+      body: JSON.stringify(inputs),
+      signal,
+      redirect: "error",
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw toProviderError(error, timeout, signal);
+  }
+
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw statusToError(response.status);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!response.body || !contentType.includes("text/event-stream")) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new ProviderError("upstream", "Unexpected response type.");
+  }
+  return response.body;
+}
+
+async function* readSseText(
+  body: ReadableStream<Uint8Array>,
+  signal: AbortSignal,
+  timeout: AbortSignal,
+): AsyncGenerator<string, void, void> {
+  const reader = body.getReader();
+  const parser = new SseParser();
+  let malformed = 0;
+  let produced = false;
+  let finished = false;
+
+  try {
+    while (!finished) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (error) {
+        throw toProviderError(error, timeout, signal);
+      }
+
+      const payloads = chunk.done
+        ? parser.end()
+        : parser.pushBytes(chunk.value);
+
+      for (const payload of payloads) {
+        if (payload.trim() === "[DONE]") {
+          finished = true;
+          break;
+        }
+        const parsed = parseEvent(payload);
+        if (parsed.kind === "malformed") {
+          malformed += 1;
+          if (malformed > MAX_MALFORMED_EVENTS) {
+            throw new ProviderError("upstream", "Malformed stream.");
+          }
+          continue;
+        }
+        if (parsed.kind === "error") {
+          throw new ProviderError("upstream", "Provider reported an error.");
+        }
+        if (parsed.text) {
+          produced = true;
+          yield parsed.text;
+        }
+      }
+
+      if (chunk.done) finished = true;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+
+  if (!produced) {
+    throw new ProviderError("upstream", "Empty response.");
+  }
+}
+
+function abortPromise(
+  signal: AbortSignal,
+  timeout: AbortSignal,
+): Promise<never> {
+  return new Promise((_, reject) => {
+    const fail = () =>
+      reject(toProviderError(new Error("Aborted"), timeout, signal));
+    if (signal.aborted || timeout.aborted) {
+      fail();
+      return;
+    }
+    signal.addEventListener("abort", fail, { once: true });
+    timeout.addEventListener("abort", fail, { once: true });
+  });
 }
 
 function statusToError(status: number): ProviderError {

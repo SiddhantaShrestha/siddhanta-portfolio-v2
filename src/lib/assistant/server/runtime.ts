@@ -6,6 +6,7 @@ import type {
   SharedGateLimits,
 } from "@/lib/assistant/server/gate-durable";
 import type { UsageGate } from "@/lib/assistant/server/gate";
+import type { WorkersAiBinding } from "@/lib/assistant/server/workers-ai";
 
 /**
  * Where the assistant finds Cloudflare bindings. It works with either adapter
@@ -30,6 +31,8 @@ export type RuntimeContext = {
   gate: UsageGate | null;
   /** Cheap per-location pre-filter, or null when it is not bound. */
   edgeLimit: RateLimitBindingLike | null;
+  /** Native Workers AI binding, or null when it is not bound. */
+  ai: WorkersAiBinding | null;
   /** String vars and secrets from the Worker env. Never logged. */
   env: Record<string, string> | undefined;
 };
@@ -38,6 +41,7 @@ export const NO_CLOUDFLARE: RuntimeContext = {
   cloudflare: false,
   gate: null,
   edgeLimit: null,
+  ai: null,
   env: undefined,
 };
 
@@ -78,6 +82,12 @@ function asNamespace(value: unknown): DurableObjectNamespaceLike | null {
 function asRateLimit(value: unknown): RateLimitBindingLike | null {
   return isRecord(value) && typeof value.limit === "function"
     ? (value as unknown as RateLimitBindingLike)
+    : null;
+}
+
+function asAi(value: unknown): WorkersAiBinding | null {
+  return isRecord(value) && typeof value.run === "function"
+    ? (value as unknown as WorkersAiBinding)
     : null;
 }
 
@@ -133,6 +143,7 @@ export async function resolveRuntime(): Promise<RuntimeContext> {
       ? createDurableGate(namespace, sharedGateLimits(env))
       : null,
     edgeLimit: asRateLimit(bindings.ASSISTANT_EDGE_LIMIT),
+    ai: asAi(bindings.AI),
     env,
   };
 }

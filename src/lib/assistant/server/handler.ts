@@ -55,6 +55,7 @@ export type HandlerDeps = {
   getConfig: (env?: Record<string, string>) => ConfigResult;
   getProvider: (
     config: Extract<ConfigResult, { status: "ready" }>["config"],
+    ai?: RuntimeContext["ai"],
   ) => ChatProvider;
   getKnowledge: () => Knowledge;
   getCatalog: () => SourceCatalog;
@@ -251,7 +252,7 @@ export async function handleAssistantRequest(
     });
 
     const events = modelEvents({
-      provider: deps.getProvider(config),
+      provider: deps.getProvider(config, runtime.ai),
       messages,
       knowledge,
       catalog,
@@ -303,7 +304,8 @@ export function createDefaultDeps(): HandlerDeps {
       }),
     getRuntime: resolveRuntime,
     isProduction: () => isProductionMode(process.env.NODE_ENV),
-    getProvider: (config) => createWorkersAiProvider(config),
+    getProvider: (config, ai = null) =>
+      createWorkersAiProvider(config, fetch, ai),
     getKnowledge,
     getCatalog: getSourceCatalog,
     generalLimiter: new BoundedRateLimiter({
