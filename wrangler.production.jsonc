@@ -49,9 +49,7 @@
   ],
   "vars": {
     "ASSISTANT_DAILY_LIMIT": "100",
-    // Keep workers.dev testing unindexed. Remove this var and redeploy with
-    // PRODUCTION_ALLOW_INDEXING=true at domain cutover.
-    "NEXT_PUBLIC_SITE_ROBOTS": "noindex",
+    // Indexing is controlled at build time via PRODUCTION_ALLOW_INDEXING.
     // Do not set ASSISTANT_PRODUCTION_GATES_CONFIRMED here.
   },
 }
