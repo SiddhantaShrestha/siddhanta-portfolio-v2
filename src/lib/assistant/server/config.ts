@@ -3,8 +3,8 @@ import "server-only";
 /**
  * Server-only assistant configuration. Read at request time, never at import.
  *
- * CLOUDFLARE_ACCOUNT_ID               Cloudflare account id
- * CLOUDFLARE_AI_API_TOKEN             API token scoped to Workers AI
+ * CLOUDFLARE_ACCOUNT_ID               optional when the Workers AI binding is used
+ * CLOUDFLARE_AI_API_TOKEN             optional when the Workers AI binding is used
  * ASSISTANT_MODEL                     optional, defaults to DEFAULT_MODEL
  * ASSISTANT_PRODUCTION_GATES_CONFIRMED  must be "true" before the model path
  *                                     runs in a production build (see
@@ -39,6 +39,14 @@ export type ConfigResult =
   /** Production build without confirmed deployment gates. Fails closed. */
   | { status: "blocked"; reason: "production_gates" };
 
+export type ReadConfigOptions = {
+  /**
+   * When true, a present Workers AI binding is enough for "ready". REST
+   * account id / token secrets are not required.
+   */
+  allowBindingOnly?: boolean;
+};
+
 type Env = Record<string, string | undefined>;
 
 const ACCOUNT_ID = /^[a-f0-9]{32}$/i;
@@ -53,11 +61,17 @@ export function isProductionMode(nodeEnv: string | undefined): boolean {
   return nodeEnv !== "development" && nodeEnv !== "test";
 }
 
-export function readConfig(env: Env = process.env): ConfigResult {
+export function readConfig(
+  env: Env = process.env,
+  options: ReadConfigOptions = {},
+): ConfigResult {
   const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim();
   const apiToken = env.CLOUDFLARE_AI_API_TOKEN?.trim();
+  const hasRestCreds = Boolean(
+    accountId && apiToken && ACCOUNT_ID.test(accountId),
+  );
 
-  if (!accountId || !apiToken || !ACCOUNT_ID.test(accountId)) {
+  if (!hasRestCreds && !options.allowBindingOnly) {
     return { status: "unconfigured" };
   }
 
@@ -77,8 +91,8 @@ export function readConfig(env: Env = process.env): ConfigResult {
   return {
     status: "ready",
     config: {
-      accountId,
-      apiToken,
+      accountId: hasRestCreds ? accountId! : "binding-only",
+      apiToken: hasRestCreds ? apiToken! : "binding-only",
       model,
       baseUrl: "https://api.cloudflare.com/client/v4",
       maxOutputTokens: 400,

@@ -326,6 +326,14 @@ test("the model path fails closed in production until gates are confirmed", () =
     }).status,
     "unconfigured",
   );
+  assert.equal(
+    readConfig({ NODE_ENV: "development" }, { allowBindingOnly: true }).status,
+    "ready",
+  );
+  assert.equal(
+    readConfig({ NODE_ENV: "production" }, { allowBindingOnly: true }).status,
+    "blocked",
+  );
 });
 
 test("config rejects model ids that are not Workers AI model names", () => {

@@ -2,7 +2,10 @@ import "server-only";
 
 import { getSiteUrl } from "@/lib/env";
 import { isProductionMode, readConfig } from "@/lib/assistant/server/config";
-import type { ConfigResult } from "@/lib/assistant/server/config";
+import type {
+  ConfigResult,
+  ReadConfigOptions,
+} from "@/lib/assistant/server/config";
 import {
   getDeterministicAnswer,
   matchStarter,
@@ -52,7 +55,10 @@ export type HandlerDeps = {
    * Read on every request so a missing key is handled, not cached. The env
    * argument is the Worker env (vars and secrets) when running on Cloudflare.
    */
-  getConfig: (env?: Record<string, string>) => ConfigResult;
+  getConfig: (
+    env?: Record<string, string>,
+    options?: ReadConfigOptions,
+  ) => ConfigResult;
   getProvider: (
     config: Extract<ConfigResult, { status: "ready" }>["config"],
     ai?: RuntimeContext["ai"],
@@ -204,7 +210,9 @@ export async function handleAssistantRequest(
     }
   }
 
-  const configResult = deps.getConfig(runtime.env);
+  const configResult = deps.getConfig(runtime.env, {
+    allowBindingOnly: runtime.ai !== null,
+  });
   if (configResult.status !== "ready") {
     release();
     return errorResponse("unavailable");
@@ -295,13 +303,16 @@ function gateDeniedResponse(denied: GateDenied): Response {
  */
 export function createDefaultDeps(): HandlerDeps {
   return {
-    getConfig: (env) =>
-      readConfig({
-        ...process.env,
-        ...env,
-        // A literal, so the build inlines it. Never read from the Worker env.
-        NODE_ENV: process.env.NODE_ENV,
-      }),
+    getConfig: (env, options) =>
+      readConfig(
+        {
+          ...process.env,
+          ...env,
+          // A literal, so the build inlines it. Never read from the Worker env.
+          NODE_ENV: process.env.NODE_ENV,
+        },
+        options,
+      ),
     getRuntime: resolveRuntime,
     isProduction: () => isProductionMode(process.env.NODE_ENV),
     getProvider: (config, ai = null) =>

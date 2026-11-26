@@ -20,6 +20,8 @@
     "preview:build": "node tools/preview/build.mjs",
     "preview:local": "node tools/preview/build.mjs && wrangler dev --local --port 8787",
     "preview:deploy": "node tools/preview/build.mjs && wrangler deploy",
+    "production:build": "node tools/production/build.mjs",
+    "production:deploy": "node tools/production/build.mjs && wrangler deploy --config wrangler.production.jsonc",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {

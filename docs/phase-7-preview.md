@@ -89,8 +89,5 @@ eventual production site stays indexable.
 
 ## Still open before public cutover
 
-1. Deploy and verify the preview Worker (with approval).
-2. Confirm Workers Free and a scoped Workers AI token.
-3. Verify DO limits on the deployed Worker, then optionally enable the model
-   path on preview only.
-4. Choose production Worker name / domain cutover later. Not this phase.
+Production Worker work moved to Phase 8 (`docs/phase-8-production.md`).
+Preview remains the workers.dev test Worker with noindex.
